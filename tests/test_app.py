@@ -35,7 +35,7 @@ class ClockTests(unittest.TestCase):
             network.assert_not_called()
 
     def test_static_assets(self):
-        for route in ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png']:
+        for route in ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/fredoka-bold.ttf']:
             self.assertEqual(self.client.get(route).status_code, 200, route)
         manifest = self.client.get('/manifest.webmanifest').json()
         self.assertEqual(manifest['display'], 'standalone')

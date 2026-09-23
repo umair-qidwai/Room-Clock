@@ -122,5 +122,8 @@ def icon_192(): return FileResponse(STATIC / "icon-192.png", media_type="image/p
 @app.get("/icon-512.png")
 def icon_512(): return FileResponse(STATIC / "icon-512.png", media_type="image/png")
 
+@app.get("/fredoka-bold.ttf")
+def clock_font(): return FileResponse(STATIC / "fredoka-bold.ttf", media_type="font/ttf")
+
 @app.get("/")
 def index(): return FileResponse(STATIC / "index.html")

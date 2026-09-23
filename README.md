@@ -4,7 +4,7 @@
 
 A big, readable room clock with a dark display, swipeable widgets, and optional Home Assistant controls and AI usage rings. Run the tiny Python server on a Raspberry Pi or another always-on computer; open it in your phone's browser.
 
-- Large 12-hour clock, seconds, and local date
+- Large rounded 12-hour clock and local date
 - Landscape-first layout, portrait support, and reduced-motion styling
 - Swipe between AI usage, morning, and night cards
 - Optional weather, prayer-time scheduling, room switch, and routine buttons
@@ -120,4 +120,7 @@ Tests use isolated configuration and temporary state; they do not access your Ho
 
 ## License
 
-Application code: [MIT](LICENSE). The embedded clock font derives from Liberation Fonts and retains its separate [SIL Open Font License and notices](clock-font-LICENSE.txt).
+Application code: [MIT](LICENSE). The fallback embedded clock font derives from
+Liberation Fonts and retains its separate [SIL Open Font License and
+notices](clock-font-LICENSE.txt). The bundled Fredoka display font retains its
+[SIL Open Font License](fredoka-font-LICENSE.txt).
