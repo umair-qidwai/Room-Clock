@@ -99,7 +99,7 @@ class BrowserTests(unittest.TestCase):
         self.page.wait_for_timeout(320)
         self.assertEqual(self.active_page(), 'clock')
         self.assertEqual(self.page.locator('.page.clock-only .widgets').count(), 0)
-        self.assertEqual(self.page.locator('.page.clock-only .date').count(), 0)
+        self.assertEqual(self.page.locator('.page.clock-only .date').count(), 1)
         self.swipe('.page:not([inert]) .clock-pane', 100)
         self.assertEqual(self.active_page(), 'widgets')
         self.assertEqual(self.posts, [])
@@ -182,12 +182,12 @@ class BrowserTests(unittest.TestCase):
     def test_layout_clock_fitting_and_screenshots(self):
         output = Path(os.environ.get('ROOM_CLOCK_SCREENSHOTS', '/tmp/room-clock-preview'))
         output.mkdir(parents=True, exist_ok=True)
+        self.page.evaluate('clock=()=>{}')
         for width, height in [(800, 360), (390, 844), (1440, 900)]:
             self.page.set_viewport_size({'width': width, 'height': height})
-            widget_face_width = 0.0
             for name in ['widgets', 'clock']:
                 if self.active_page() != name:
-                    self.swipe('.page:not([inert]) .clock-pane', -100)
+                    self.swipe('.page:not([inert]) .clock-pane', -max(100, int(height * .3)))
                 for value in ['1:11', '12:58', '8:08']:
                     self.page.evaluate('(value)=>paintTime(value,null,false)', value)
                     self.page.wait_for_timeout(100)
@@ -202,23 +202,34 @@ class BrowserTests(unittest.TestCase):
                                 transform:getComputedStyle(face).transform,
                                 font:parseFloat(getComputedStyle(time).fontSize)};
                     }''')
-                    for edge in ['left', 'right', 'bottom', 'top']:
-                        self.assertGreaterEqual(bounds[edge], -1, (width, height, name, value, bounds))
-                    if name == 'widgets' and value == '1:11':
-                        widget_face_width = bounds['width']
+                    if name == 'widgets':
+                        for edge in ['left', 'right', 'bottom', 'top']:
+                            self.assertGreaterEqual(bounds[edge], -1, (width, height, name, value, bounds))
                     if name == 'clock':
                         self.assertEqual(bounds['transform'], 'none',
                                          (width, height, name, value, bounds))
-                        self.assertGreaterEqual(max(bounds['height'] / bounds['paneHeight'],
-                                                    bounds['width'] / bounds['paneWidth']), .79,
-                                                (width, height, name, value, bounds))
-                        if value == '12:58':
-                            self.assertGreaterEqual(bounds['width'], bounds['paneWidth'] * .75,
-                                                    (width, height, name, value, bounds))
-                        if value == '1:11' and (width, height) == (800, 360):
-                            self.assertGreater(bounds['width'], widget_face_width * 1.15,
+                        fit = self.page.evaluate('''value => {
+                            const pane=document.querySelector('.page.clock-only .clock-pane');
+                            const date=pane.querySelector('.date').getBoundingClientRect();
+                            const metrics=measureClockInk(value);
+                            return Math.min(1200,(pane.clientWidth-128)*100/metrics.width,
+                                (pane.clientHeight-date.height-12)*100/metrics.height);
+                        }''', value)
+                        self.assertAlmostEqual(bounds['font'], fit, delta=1,
+                                               msg=(width, height, name, value, bounds, fit))
+                        if (width, height) == (800, 360):
+                            self.assertGreater(bounds['font'], 300,
                                                (width, height, name, value, bounds))
-                overflow = self.page.evaluate('''() => [...document.querySelectorAll('.page:not([inert]),.page:not([inert]) .card,.page:not([inert]) .rings')].filter(e=>e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1).map(e=>({className:e.className,clientWidth:e.clientWidth,scrollWidth:e.scrollWidth,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight}))''')
+                            ink_right, light_left = self.page.evaluate('''value => {
+                                const pane=document.querySelector('.page.clock-only .clock-pane').getBoundingClientRect();
+                                const light=document.querySelector('#light').getBoundingClientRect();
+                                const font=parseFloat(getComputedStyle(document.querySelector('.page.clock-only .time')).fontSize);
+                                const inkWidth=measureClockInk(value).width*font/100;
+                                return [pane.left+pane.width/2+inkWidth/2,light.left];
+                            }''', value)
+                            self.assertLessEqual(ink_right, light_left,
+                                                 (value, ink_right, light_left))
+                overflow = self.page.evaluate('''() => [...document.querySelectorAll('.page:not([inert]) .card,.page:not([inert]) .rings')].filter(e=>e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1).map(e=>({className:e.className,clientWidth:e.clientWidth,scrollWidth:e.scrollWidth,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight}))''')
                 self.assertEqual(overflow, [])
                 self.page.screenshot(path=str(output / f'{width}x{height}-{name}.png'))
                 if name == 'widgets':
