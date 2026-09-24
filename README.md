@@ -6,7 +6,8 @@ A big, readable room clock with a dark display, swipeable widgets, and optional 
 
 - Large rounded 12-hour clock and local date
 - Landscape-first layout, portrait support, and reduced-motion styling
-- Swipe between AI usage, morning, and night cards
+- Swipe the clock vertically between clock-only and clock-with-widgets pages
+- Swipe the widget card between AI usage, morning, and night; AI usage is the default
 - Optional weather, prayer-time scheduling, room switch, and routine buttons
 - Bundled digits and icons: no CDN or third-party analytics
 
@@ -29,10 +30,10 @@ For a temporary test from a phone on your **trusted home network**, replace `127
 ## Turn an old phone into a display
 
 1. Connect the phone and server to the same trusted Wi-Fi. Set automatic date/time and the same timezone on both; the clock uses the phone's timezone and daily routine flags use the server's.
-2. Open the server address in a recent Chrome/Chromium or Safari. Landscape is recommended; swipe vertically on the widget card.
+2. Open the server address in a recent Chrome/Chromium or Safari. Landscape is recommended. Swipe vertically on the time to switch clock pages, or on the widget card to switch widgets.
 3. For an app-like home-screen window, serve **trusted HTTPS**. Use a trusted reverse proxy, or generate a local certificate with a local CA tool such as `mkcert`, including your server's actual LAN hostname/IP. Install **only the CA certificate**, never its private key, as trusted on the phone. Merely clicking through a certificate warning is not equivalent to a trusted secure context.
 4. In Chrome choose **Install app / Add to Home screen**; in Safari choose **Share → Add to Home Screen**. Availability and standalone behavior depend on browser/OS. There is no service worker or offline cache. If the browser only offers a shortcut, keep using it in-browser or use a trusted kiosk browser.
-5. Adjust display sleep/auto-lock in the OS or kiosk browser. Room Clock does **not** request a wake lock. Use modest brightness, keep ventilation clear, and monitor battery health; do not leave a swollen or overheating old battery charging.
+5. Adjust display sleep/auto-lock in the OS or kiosk browser if needed. Room Clock requests a browser screen wake lock while visible, but the browser or OS may deny it and the app cannot control system brightness. Use modest brightness, keep ventilation clear, and monitor battery health; do not leave a swollen or overheating old battery charging.
 
 HTTPS directly with Uvicorn (replace certificate filenames with your own):
 
@@ -73,7 +74,7 @@ set +a
 | `MORNING_AUTOMATION_ENTITY`, `NIGHT_AUTOMATION_ENTITY` | Your `automation.*` entities; buttons trigger with `skip_condition=false` |
 | `AI_USAGE_URL` | Base URL of a separate compatible usage monitor |
 
-Routine completion is saved in ignored `interaction-state.json` and resets on the server's local date. Scheduled widget selection uses prayer timestamps; routine buttons are still manually accessible by swiping. Setting an automation entity does **not** change its Home Assistant triggers. The room control supports the `switch` domain, not arbitrary `light` entities.
+Routine completion is saved in ignored `interaction-state.json` and resets on the server's local date. Morning and night routines never take over the widget rail automatically; AI usage remains the default and the routine buttons are manually accessible by swiping. Setting an automation entity does **not** change its Home Assistant triggers. The room control supports the `switch` domain, not arbitrary `light` entities.
 
 ### AI usage data flow
 
