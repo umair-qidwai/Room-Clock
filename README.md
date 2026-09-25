@@ -6,7 +6,7 @@ A big, readable room clock with a dark display, swipeable widgets, and optional 
 
 - Large rounded 12-hour clock and local date
 - Landscape-first layout, portrait support, and reduced-motion styling
-- Swipe the clock vertically between clock-only and clock-with-widgets pages
+- Swipe the clock vertically in either direction between the default clock-only page and the clock-with-widgets page
 - Swipe the widget card between AI usage, morning, and night; AI usage is the default
 - Optional weather, prayer-time scheduling, room switch, and routine buttons
 - Bundled digits and icons: no CDN or third-party analytics

@@ -38,7 +38,7 @@
 .clock-pane:focus-visible{outline:1px solid var(--line);outline-offset:2px}
 #pages.dragging .clock-pane{cursor:grabbing}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
-</style></head><body><button class="light-toggle unknown" id="light" aria-label="Room light state loading" aria-busy="true" aria-pressed="mixed" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M8.5 14.5C7.55 13.62 7 12.25 7 10.75A5 5 0 0 1 17 10.75c0 1.5-.55 2.87-1.5 3.75-.72.67-1.05 1.1-1.2 1.5h-4.6c-.15-.4-.48-.83-1.2-1.5Z"/><path d="M12 2v2M4.93 4.93l1.42 1.42M2 12h2M19.07 4.93l-1.42 1.42M20 12h2"/></svg></button><main id="pages" aria-label="Clock pages"><div class="app page" data-page="widgets"><section class="clock-pane" tabindex="0" aria-label="Clock. Swipe up or down for clock only."><div id="date" class="date">Loading…</div><div class="clock-row"><div id="time" class="time">--:--</div></div></section><aside class="widgets"><div class="rail-title">Widgets</div><div id="rail" class="rail"></div><div id="dots" class="dots" aria-label="Widget pages"></div></aside></div><div class="app page clock-only" data-page="clock" inert aria-hidden="true"><section class="clock-pane" tabindex="0" aria-label="Clock. Swipe up or down for widgets."><div class="date">Loading…</div><div class="clock-row"><div class="time">--:--</div></div></section></div></main><div id="toast" class="toast"></div><script>
+</style></head><body><button class="light-toggle unknown" id="light" aria-label="Room light state loading" aria-busy="true" aria-pressed="mixed" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M8.5 14.5C7.55 13.62 7 12.25 7 10.75A5 5 0 0 1 17 10.75c0 1.5-.55 2.87-1.5 3.75-.72.67-1.05 1.1-1.2 1.5h-4.6c-.15-.4-.48-.83-1.2-1.5Z"/><path d="M12 2v2M4.93 4.93l1.42 1.42M2 12h2M19.07 4.93l-1.42 1.42M20 12h2"/></svg></button><main id="pages" aria-label="Clock pages"><div class="app page" data-page="widgets" inert aria-hidden="true"><section class="clock-pane" tabindex="0" aria-label="Clock. Swipe up or down for clock only."><div id="date" class="date">Loading…</div><div class="clock-row"><div id="time" class="time">--:--</div></div></section><aside class="widgets"><div class="rail-title">Widgets</div><div id="rail" class="rail"></div><div id="dots" class="dots" aria-label="Widget pages"></div></aside></div><div class="app page clock-only" data-page="clock"><section class="clock-pane" tabindex="0" aria-label="Clock. Swipe up or down for widgets."><div class="date">Loading…</div><div class="clock-row"><div class="time">--:--</div></div></section></div></main><div id="toast" class="toast"></div><script>
 const $=s=>document.querySelector(s);let data={morning_done:false,night_done:false,usage:{codex:{},claude:{}}},lastMinute=null,manualUntil=0,manualIndex=null,toastTimer,widgetTransitionTimer=null,widgetBusy=false,suppressWidgetClick=false,lastWidgetRefresh=0,lastWeatherFetch=0,wakeLock=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function pct(v){return Math.max(0,Math.min(100,Number(v??0)))}function toast(t){let e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.classList.remove('show'),2800)}
 function ring(name,value){let p=pct(value),r=20,c=2*Math.PI*r;return `<div class="ring"><div class="ring-gauge"><svg viewBox="0 0 48 48"><circle class="track" cx="24" cy="24" r="20"/><circle class="progress" cx="24" cy="24" r="20" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-p/100)}"/></svg><div class="ring-value">${value==null?'—':Math.round(p)}<small>%</small></div></div><div class="ring-name">${esc(name)}</div></div>`}
@@ -63,7 +63,7 @@ function moveWidgetDrag(e){if(!drag||e.pointerId!==drag.id)return;let dy=e.clien
 function finishWidgetDrag(e,cancel=false){if(!drag||e.pointerId!==drag.id)return;let endDy=e.clientY-drag.startY;if(Math.abs(endDy)>Math.abs(drag.dy))moveWidgetDrag(e);let state=drag;drag=null;let rail=$('#rail');rail.hasPointerCapture(e.pointerId)&&rail.releasePointerCapture(e.pointerId);if(!state.moved||!state.neighbor){rail.classList.remove('dragging');widgetBusy=false;return}let distance=dragDistance(),elapsed=Math.max(1,performance.now()-state.startT),velocity=state.dy/elapsed,fastFlick=elapsed<600&&Math.abs(state.dy)>20,commit=!cancel&&(Math.abs(state.dy)>distance*.18||Math.abs(velocity)>.28||fastFlick),dir=state.dy<0?1:-1;state.current.classList.add('settling');state.neighbor.classList.add('settling');requestAnimationFrame(()=>{if(commit){state.current.style.transform=`translate3d(0,${-dir*distance}px,0)`;state.current.style.opacity='0';state.neighbor.style.transform='translate3d(0,0,0)';state.neighbor.style.opacity='1'}else{state.current.style.transform='translate3d(0,0,0)';state.current.style.opacity='1';state.neighbor.style.transform=`translate3d(0,${dir*distance}px,0)`;state.neighbor.style.opacity='0'}});suppressWidgetClick=true;setTimeout(()=>{rail.classList.remove('dragging');if(commit){manualIndex=(state.index+dir+widgetList().length)%widgetList().length;manualUntil=Date.now()+60000}widgetBusy=false;render();setTimeout(()=>{suppressWidgetClick=false},0)},250)}
 // A page gesture starts only on a clock pane, never on a widget or light.
 const pages=Array.from(document.querySelectorAll('.page'));
-let pageIndex=0,pageDrag=null,pageBusy=false;
+let pageIndex=1,pageDrag=null,pageBusy=false;
 function pageDistance(){return $('#pages').clientHeight+14}
 function swipeCommits(dy,elapsed,distance){return Math.abs(dy)>distance*.18||Math.abs(dy)/Math.max(1,elapsed)>.28||(elapsed<600&&Math.abs(dy)>20)}
 function beginPageDrag(e){
@@ -87,7 +87,7 @@ function finishPageDrag(e,cancel=false){
   // Always use the release position, including a reversal or a coalesced flick.
   if(!cancel)movePageDrag(e);
   const d=pageDrag;pageDrag=null;
-  if(d.pane.hasPointerCapture(e.pointerId))d.pane.releasePointerCapture(e.pointerId);
+  if(e.pointerId>=0&&d.pane.hasPointerCapture(e.pointerId))d.pane.releasePointerCapture(e.pointerId);
   if(!d.moved)return;
   pageBusy=true;
   const dir=d.dy<0?1:-1,distance=pageDistance();
@@ -115,6 +115,26 @@ document.querySelectorAll('.clock-pane').forEach(pane=>{
   pane.addEventListener('pointerup',e=>finishPageDrag(e));
   pane.addEventListener('pointercancel',e=>finishPageDrag(e,true));
   pane.addEventListener('lostpointercapture',e=>finishPageDrag(e,true));
+  pane.addEventListener('touchstart',e=>{
+    if(pageDrag)return;
+    const t=e.touches[0];if(!t)return;
+    beginPageDrag({pointerId:-9,pointerType:'touch',isPrimary:true,button:0,clientY:t.clientY,currentTarget:pane});
+  },{passive:true});
+  pane.addEventListener('touchmove',e=>{
+    if(!pageDrag||pageDrag.id!==-9)return;
+    const t=e.touches[0];if(!t)return;
+    movePageDrag({pointerId:-9,clientY:t.clientY,isTrusted:false,preventDefault:()=>e.preventDefault()});
+  },{passive:false});
+  pane.addEventListener('touchend',e=>{
+    if(!pageDrag||pageDrag.id!==-9)return;
+    const t=e.changedTouches[0];if(!t)return;
+    finishPageDrag({pointerId:-9,clientY:t.clientY,preventDefault(){}});
+  });
+  pane.addEventListener('touchcancel',e=>{
+    if(!pageDrag||pageDrag.id!==-9)return;
+    const t=e.changedTouches[0]||{clientY:pageDrag.startY};
+    finishPageDrag({pointerId:-9,clientY:t.clientY,preventDefault(){}},true);
+  });
   pane.addEventListener('keydown',e=>{
     if(!['ArrowUp','ArrowDown'].includes(e.key)||pageBusy||pageDrag)return;
     e.preventDefault();

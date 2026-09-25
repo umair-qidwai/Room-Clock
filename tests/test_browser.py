@@ -87,35 +87,40 @@ class BrowserTests(unittest.TestCase):
     def active_page(self):
         return self.page.locator('.page:not([inert])').get_attribute('data-page')
 
+    def go_to_page(self, name):
+        if self.active_page() != name:
+            self.swipe('.page:not([inert]) .clock-pane', -150)
+        self.assertEqual(self.active_page(), name)
+
     def test_two_pages_default_and_bidirectional_drag(self):
         self.assertEqual(self.page.locator('.page').count(), 2)
-        self.assertEqual(self.active_page(), 'widgets')
+        self.assertEqual(self.active_page(), 'clock')
         self.pointer('.page:not([inert]) .clock-pane', 'pointerdown', 240)
         self.pointer('.page:not([inert]) .clock-pane', 'pointermove', 100)
-        self.assertTrue(self.page.locator('.page.clock-only').is_visible())
-        transform = self.page.locator('.page[data-page="widgets"]').evaluate('e=>getComputedStyle(e).transform')
+        self.assertTrue(self.page.locator('.page[data-page="widgets"]').is_visible())
+        transform = self.page.locator('.page.clock-only').evaluate('e=>getComputedStyle(e).transform')
         self.assertIn('-140', transform)
-        self.pointer('.page[data-page="widgets"] .clock-pane', 'pointerup', 100)
+        self.pointer('.page.clock-only .clock-pane', 'pointerup', 100)
         self.page.wait_for_timeout(320)
-        self.assertEqual(self.active_page(), 'clock')
+        self.assertEqual(self.active_page(), 'widgets')
         self.assertEqual(self.page.locator('.page.clock-only .widgets').count(), 0)
         self.assertEqual(self.page.locator('.page.clock-only .date').count(), 1)
         self.swipe('.page:not([inert]) .clock-pane', 100)
-        self.assertEqual(self.active_page(), 'widgets')
+        self.assertEqual(self.active_page(), 'clock')
         self.assertEqual(self.posts, [])
 
     def test_page_cancel_reversal_flick_and_repeated_swipes(self):
         clock = '.page:not([inert]) .clock-pane'
         self.swipe(clock, -15, slow=True)
-        self.assertEqual(self.active_page(), 'widgets')
+        self.assertEqual(self.active_page(), 'clock')
         self.swipe(clock, -150, cancel=True)
-        self.assertEqual(self.active_page(), 'widgets')
+        self.assertEqual(self.active_page(), 'clock')
         self.pointer(clock, 'pointerdown', 180)
         self.pointer(clock, 'pointermove', 60)
         self.page.wait_for_timeout(650)
         self.pointer(clock, 'pointerup', 178)
         self.page.wait_for_timeout(320)
-        self.assertEqual(self.active_page(), 'widgets')
+        self.assertEqual(self.active_page(), 'clock')
         for dy in (-25, -25, 25, 25):
             before = self.active_page()
             self.swipe(clock, dy, move=False)
@@ -123,7 +128,26 @@ class BrowserTests(unittest.TestCase):
             self.assertEqual(self.page.locator('.page:visible').count(), 1)
         self.assertEqual(self.posts, [])
 
+    def test_touch_event_fallback_loops_pages(self):
+        def touch(kind, y):
+            self.page.evaluate('''([kind,y]) => {
+                const target=document.querySelector('.page:not([inert]) .clock-pane');
+                const touch=new Touch({identifier:9,target,clientX:140,clientY:y});
+                const active=kind==='touchend'?[]:[touch];
+                target.dispatchEvent(new TouchEvent(kind,{bubbles:true,cancelable:true,
+                    touches:active,targetTouches:active,changedTouches:[touch]}));
+            }''', [kind, y])
+        for expected, start, end in [('widgets', 240, 80), ('clock', 80, 240),
+                                     ('widgets', 240, 80), ('clock', 80, 240)]:
+            touch('touchstart', start)
+            touch('touchmove', end)
+            touch('touchend', end)
+            self.page.wait_for_timeout(320)
+            self.assertEqual(self.active_page(), expected)
+        self.assertEqual(self.posts, [])
+
     def test_widget_gesture_and_wheel_are_independent(self):
+        self.go_to_page('widgets')
         self.swipe('#rail', -100)
         self.assertIn('Good morning', self.page.locator('#rail').inner_text())
         self.assertEqual(self.active_page(), 'widgets')
@@ -143,6 +167,7 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(self.posts, [])
 
     def test_default_ai_no_prayer_takeover_and_idle_during_drag(self):
+        self.go_to_page('widgets')
         self.assertIn('AI usage', self.page.locator('#rail').inner_text())
         self.state['isha']['state'] = '2099-01-01T20:00:00Z'
         self.page.evaluate('refresh()')
@@ -160,6 +185,7 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(self.posts, [])
 
     def test_routine_taps_and_swipes_starting_on_buttons(self):
+        self.go_to_page('widgets')
         # Real browser mouse events verify delayed pointer capture preserves taps.
         self.page.evaluate('selectWidget(1,0,false)')
         self.page.locator('[data-action="morning"]').click()

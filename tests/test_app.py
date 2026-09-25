@@ -37,6 +37,7 @@ class ClockTests(unittest.TestCase):
     def test_static_assets(self):
         for route in ['/', '/manifest.webmanifest', '/icon.svg', '/icon-192.png', '/icon-512.png', '/fredoka-bold.ttf']:
             self.assertEqual(self.client.get(route).status_code, 200, route)
+        self.assertEqual(self.client.get('/').headers.get('cache-control'), 'no-store')
         manifest = self.client.get('/manifest.webmanifest').json()
         self.assertEqual(manifest['display'], 'standalone')
 
