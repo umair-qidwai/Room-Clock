@@ -129,6 +129,10 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(self.posts, [])
 
     def test_touch_event_fallback_loops_pages(self):
+        # OnePlus-era Chromium may not implement HTMLElement.inert. Page switching
+        # must therefore update the actual attribute, not only the JS property.
+        self.assertTrue(self.page.evaluate('delete HTMLElement.prototype.inert'))
+        self.assertFalse(self.page.evaluate("'inert' in HTMLElement.prototype"))
         def touch(kind, y):
             self.page.evaluate('''([kind,y]) => {
                 const target=document.querySelector('.page:not([inert]) .clock-pane');

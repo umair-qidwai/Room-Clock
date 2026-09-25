@@ -101,7 +101,9 @@ function finishPageDrag(e,cancel=false){
     const hadFocus=d.current.contains(document.activeElement);
     if(commit)pageIndex=1-pageIndex;
     pages.forEach((page,i)=>{
-      page.inert=i!==pageIndex;page.setAttribute('aria-hidden',String(i!==pageIndex));
+      const inactive=i!==pageIndex;
+      if(inactive)page.setAttribute('inert','');else page.removeAttribute('inert');
+      page.setAttribute('aria-hidden',String(inactive));
       page.classList.remove('settling','preview');page.style.transform='';
     });
     $('#pages').classList.remove('dragging');pageBusy=false;
