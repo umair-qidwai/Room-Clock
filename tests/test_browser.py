@@ -128,6 +128,22 @@ class BrowserTests(unittest.TestCase):
             self.assertEqual(self.page.locator('.page:visible').count(), 1)
         self.assertEqual(self.posts, [])
 
+    def test_native_touch_on_digits_loops_pages(self):
+        session = self.context.new_cdp_session(self.page)
+        session.send('Emulation.setTouchEmulationEnabled', {'enabled': True})
+        for expected, start, end in [('widgets', 240, 80), ('clock', 240, 80),
+                                     ('widgets', 80, 240), ('clock', 80, 240)]:
+            session.send('Input.dispatchTouchEvent', {'type': 'touchStart',
+                'touchPoints': [{'x': 300, 'y': start}]})
+            for step in range(1, 6):
+                session.send('Input.dispatchTouchEvent', {'type': 'touchMove',
+                    'touchPoints': [{'x': 300, 'y': start+(end-start)*step/5}]})
+                self.page.wait_for_timeout(40)
+            session.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
+            self.page.wait_for_timeout(400)
+            self.assertEqual(self.active_page(), expected)
+        self.assertEqual(self.posts, [])
+
     def test_touch_event_fallback_loops_pages(self):
         # OnePlus-era Chromium may not implement HTMLElement.inert. Page switching
         # must therefore update the actual attribute, not only the JS property.

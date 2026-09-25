@@ -116,7 +116,8 @@ document.querySelectorAll('.clock-pane').forEach(pane=>{
   pane.addEventListener('pointermove',movePageDrag);
   pane.addEventListener('pointerup',e=>finishPageDrag(e));
   pane.addEventListener('pointercancel',e=>finishPageDrag(e,true));
-  pane.addEventListener('lostpointercapture',e=>finishPageDrag(e,true));
+  // A digit losing implicit capture during transfer to the pane is not cancellation.
+  pane.addEventListener('lostpointercapture',e=>{if(e.target===pane)finishPageDrag(e,true)});
   pane.addEventListener('touchstart',e=>{
     if(pageDrag)return;
     const t=e.touches[0];if(!t)return;
