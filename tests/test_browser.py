@@ -128,6 +128,17 @@ class BrowserTests(unittest.TestCase):
             self.assertEqual(self.page.locator('.page:visible').count(), 1)
         self.assertEqual(self.posts, [])
 
+    def test_minute_animation_keeps_full_size(self):
+        self.page.evaluate('clock=()=>{}')
+        for previous, value in [('6:21', '6:22'), ('6:59', '7:00'), ('9:59', '10:00')]:
+            self.page.evaluate('(v)=>{paintTime(v,null,false);fitTime()}', value)
+            expected = self.page.locator('.clock-only .time').evaluate('e=>parseFloat(getComputedStyle(e).fontSize)')
+            self.page.evaluate('([p,v])=>{paintTime(p,null,false);paintTime(v,p,true);fitTime()}', [previous,value])
+            for delay in [50, 750]:
+                self.page.wait_for_timeout(delay)
+                actual = self.page.locator('.clock-only .time').evaluate('e=>parseFloat(getComputedStyle(e).fontSize)')
+                self.assertAlmostEqual(actual, expected, delta=1, msg=(previous,value,delay))
+
     def test_native_touch_on_digits_loops_pages(self):
         session = self.context.new_cdp_session(self.page)
         session.send('Emulation.setTouchEmulationEnabled', {'enabled': True})
