@@ -92,13 +92,16 @@ class BrowserTests(unittest.TestCase):
             self.swipe('.page:not([inert]) .clock-pane', -150)
         self.assertEqual(self.active_page(), name)
 
-    def test_ice_blue_theme(self):
+    def test_matte_night_theme(self):
         style = self.page.locator('.clock-only .time').evaluate('''e => {
             const s=getComputedStyle(e);return {color:s.color,font:s.fontFamily,shadow:s.textShadow};
         }''')
-        self.assertEqual(style['color'], 'rgb(167, 194, 223)')
+        self.assertEqual(style['color'], 'rgb(104, 113, 117)')
         self.assertIn('OxaniumClock', style['font'])
         self.assertEqual(style['shadow'], 'none')
+        glyph = self.page.locator('.clock-only .time-char>span').first
+        self.assertEqual(glyph.evaluate('e=>getComputedStyle(e).backgroundImage'), 'none')
+        self.assertEqual(glyph.evaluate('e=>getComputedStyle(e).color'), 'rgb(104, 113, 117)')
 
     def test_two_pages_default_and_bidirectional_drag(self):
         self.assertEqual(self.page.locator('.page').count(), 2)
