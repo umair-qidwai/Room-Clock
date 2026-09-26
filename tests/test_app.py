@@ -39,7 +39,7 @@ class ClockTests(unittest.TestCase):
             self.assertEqual(self.client.get(route).status_code, 200, route)
         self.assertEqual(self.client.get('/').headers.get('cache-control'), 'no-store')
         manifest = self.client.get('/manifest.webmanifest').json()
-        self.assertEqual(manifest['display'], 'standalone')
+        self.assertEqual(manifest['display'], 'fullscreen')
 
     def test_daily_reset(self):
         result = self.app.reset_daily({'date': '2000-01-01', 'morning_done': True, 'night_done': True})

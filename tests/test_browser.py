@@ -60,7 +60,7 @@ class BrowserTests(unittest.TestCase):
             route.fulfill(json=self.state)
         elif path == "/api/weather":
             route.fulfill(json={"forecast": []})
-        elif path in ("/", "/fredoka-bold.ttf", "/manifest.webmanifest", "/icon.svg"):
+        elif path in ("/", "/oxanium-clear-zero.ttf", "/manifest.webmanifest", "/icon.svg"):
             file = ROOT / "static" / ("index.html" if path == "/" else path[1:])
             route.fulfill(path=str(file))
         else:
@@ -91,6 +91,14 @@ class BrowserTests(unittest.TestCase):
         if self.active_page() != name:
             self.swipe('.page:not([inert]) .clock-pane', -150)
         self.assertEqual(self.active_page(), name)
+
+    def test_graphite_theme(self):
+        style = self.page.locator('.clock-only .time').evaluate('''e => {
+            const s=getComputedStyle(e);return {color:s.color,font:s.fontFamily,shadow:s.textShadow};
+        }''')
+        self.assertEqual(style['color'], 'rgb(149, 157, 168)')
+        self.assertIn('OxaniumClock', style['font'])
+        self.assertEqual(style['shadow'], 'none')
 
     def test_two_pages_default_and_bidirectional_drag(self):
         self.assertEqual(self.page.locator('.page').count(), 2)
@@ -240,52 +248,47 @@ class BrowserTests(unittest.TestCase):
         output = Path(os.environ.get('ROOM_CLOCK_SCREENSHOTS', '/tmp/room-clock-preview'))
         output.mkdir(parents=True, exist_ok=True)
         self.page.evaluate('clock=()=>{}')
-        for width, height in [(800, 360), (390, 844), (1440, 900)]:
+        for width, height in [(800, 360), (640, 320), (390, 844), (1440, 900)]:
             self.page.set_viewport_size({'width': width, 'height': height})
             for name in ['widgets', 'clock']:
                 if self.active_page() != name:
                     self.swipe('.page:not([inert]) .clock-pane', -max(100, int(height * .3)))
-                for value in ['1:11', '12:58', '8:08']:
+                for value in ['1:11', '12:58', '8:08', '10:00', '11:11']:
                     self.page.evaluate('(value)=>paintTime(value,null,false)', value)
                     self.page.wait_for_timeout(100)
                     bounds = self.page.evaluate('''() => {
                         const pane=document.querySelector('.page:not([inert]) .clock-pane');
-                        const face=pane.querySelector('.time-face'), time=face.parentElement;
-                        const faceRect=face.getBoundingClientRect();
-                        const rect=pane.getBoundingClientRect(), date=pane.querySelector('.date')?.getBoundingClientRect();
-                        return {left:faceRect.left-rect.left,right:rect.right-faceRect.right,
-                                bottom:rect.bottom-faceRect.bottom,top:faceRect.top-(date?.bottom||rect.top),
-                                width:faceRect.width,height:faceRect.height,paneWidth:rect.width,paneHeight:rect.height,
-                                transform:getComputedStyle(face).transform,
-                                font:parseFloat(getComputedStyle(time).fontSize)};
+                        const row=pane.querySelector('.clock-row').getBoundingClientRect();
+                        const face=pane.querySelector('.time-face'), date=pane.querySelector('.date').getBoundingClientRect();
+                        const c=document.createElement('canvas').getContext('2d');
+                        let left=Infinity,right=-Infinity,top=Infinity,bottom=-Infinity;
+                        for(const slot of face.children){
+                            const glyph=slot.querySelector('.static,.enter'), r=glyph.getBoundingClientRect(), s=getComputedStyle(glyph);
+                            c.font=`${s.fontWeight} ${s.fontSize} ${s.fontFamily}`;
+                            const m=c.measureText(glyph.textContent);
+                            const baseline=r.top+(parseFloat(s.lineHeight)-m.fontBoundingBoxAscent-m.fontBoundingBoxDescent)/2+m.fontBoundingBoxAscent;
+                            left=Math.min(left,r.left-m.actualBoundingBoxLeft);
+                            right=Math.max(right,r.left+m.actualBoundingBoxRight);
+                            top=Math.min(top,baseline-m.actualBoundingBoxAscent);
+                            bottom=Math.max(bottom,baseline+m.actualBoundingBoxDescent);
+                        }
+                        const light=document.querySelector('#light').getBoundingClientRect();
+                        return {left:left-row.left,right:row.right-right,top:top-row.top,bottom:row.bottom-bottom,
+                            width:right-left,height:bottom-top,rowWidth:row.width,rowHeight:row.height,
+                            dateGap:top-date.bottom, transform:getComputedStyle(face).transform,
+                            lightOverlap:right>light.left&&left<light.right&&bottom>light.top&&top<light.bottom};
                     }''')
-                    if name == 'widgets':
-                        for edge in ['left', 'right', 'bottom', 'top']:
-                            self.assertGreaterEqual(bounds[edge], -1, (width, height, name, value, bounds))
-                    if name == 'clock':
-                        self.assertEqual(bounds['transform'], 'none',
-                                         (width, height, name, value, bounds))
-                        fit = self.page.evaluate('''value => {
-                            const pane=document.querySelector('.page.clock-only .clock-pane');
-                            const date=pane.querySelector('.date').getBoundingClientRect();
-                            const metrics=measureClockInk(value);
-                            return Math.min(1200,(pane.clientWidth-128)*100/metrics.width,
-                                (pane.clientHeight-date.height-12)*100/metrics.height);
-                        }''', value)
-                        self.assertAlmostEqual(bounds['font'], fit, delta=1,
-                                               msg=(width, height, name, value, bounds, fit))
-                        if (width, height) == (800, 360):
-                            self.assertGreater(bounds['font'], 300,
-                                               (width, height, name, value, bounds))
-                            ink_right, light_left = self.page.evaluate('''value => {
-                                const pane=document.querySelector('.page.clock-only .clock-pane').getBoundingClientRect();
-                                const light=document.querySelector('#light').getBoundingClientRect();
-                                const font=parseFloat(getComputedStyle(document.querySelector('.page.clock-only .time')).fontSize);
-                                const inkWidth=measureClockInk(value).width*font/100;
-                                return [pane.left+pane.width/2+inkWidth/2,light.left];
-                            }''', value)
-                            self.assertLessEqual(ink_right, light_left,
-                                                 (value, ink_right, light_left))
+                    for edge in ['left','right','top','bottom','dateGap']:
+                        self.assertGreaterEqual(bounds[edge], -1.5, (width,height,name,value,bounds))
+                    self.assertEqual(bounds['transform'], 'none')
+                    self.assertFalse(bounds['lightOverlap'], (width,height,name,value,bounds))
+                    # At least one axis must be filled: both cannot fill at once
+                    # without distorting the font's native aspect ratio.
+                    self.assertGreater(max(bounds['width']/bounds['rowWidth'],
+                                           bounds['height']/bounds['rowHeight']), .975,
+                                       (width,height,name,value,bounds))
+                    self.assertAlmostEqual(bounds['left'], bounds['right'], delta=2)
+                    self.assertAlmostEqual(bounds['top'], bounds['bottom'], delta=3)
                 overflow = self.page.evaluate('''() => [...document.querySelectorAll('.page:not([inert]) .card,.page:not([inert]) .rings')].filter(e=>e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1).map(e=>({className:e.className,clientWidth:e.clientWidth,scrollWidth:e.scrollWidth,clientHeight:e.clientHeight,scrollHeight:e.scrollHeight}))''')
                 self.assertEqual(overflow, [])
                 self.page.screenshot(path=str(output / f'{width}x{height}-{name}.png'))
