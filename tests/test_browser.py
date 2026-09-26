@@ -4,6 +4,8 @@ Install playwright and Chromium; CHROMIUM_PATH overrides /usr/bin/chromium.
 """
 import json
 import os
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 import unittest
 from urllib.parse import urlparse
@@ -34,12 +36,19 @@ class BrowserTests(unittest.TestCase):
         self.context = self.browser.new_context(viewport={"width": 800, "height": 360})
         self.page = self.context.new_page()
         self.posts = []
+        self.state_requests = 0
+        self.fail_posts = False
+        self.fail_state = False
         self.errors = []
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
         self.state = {
             "room": {"state": "off"},
-            "fajr": {"state": "2020-01-01T05:00:00Z"},
-            "isha": {"state": "2020-01-01T20:00:00Z"},
+            "date": datetime.now().astimezone().date().isoformat(),
+            "server_now": time.time(),
+            "morning_weather_until": 0,
+            "user_name": "Umair",
+            "shuruq": {"state": (datetime.now().astimezone() + timedelta(hours=1)).isoformat()},
+            "isha_iqama": {"state": (datetime.now().astimezone() + timedelta(hours=2)).isoformat()},
             "morning_done": False, "night_done": False,
             "morning_automation_configured": True,
             "night_automation_configured": True,
@@ -55,9 +64,22 @@ class BrowserTests(unittest.TestCase):
         path = urlparse(route.request.url).path
         if route.request.method == "POST":
             self.posts.append(path)
-            route.fulfill(json={"ok": True})
+            if self.fail_posts:
+                route.fulfill(status=503, json={"detail": "Home Assistant unavailable"})
+            else:
+                if path in ('/api/morning', '/api/night'):
+                    self.state[path.removeprefix('/api/') + '_done'] = True
+                if path == '/api/morning':
+                    self.state['morning_weather_until'] = time.time() + 120
+                route.fulfill(json={"ok": True,
+                                    "morning_weather_until": self.state['morning_weather_until']})
         elif path == "/api/state":
-            route.fulfill(json=self.state)
+            self.state_requests += 1
+            self.state['server_now'] = time.time()
+            if self.fail_state:
+                route.fulfill(status=503, json={"detail": "offline"})
+            else:
+                route.fulfill(json=self.state)
         elif path == "/api/weather":
             route.fulfill(json={"forecast": []})
         elif path in ("/", "/oswald-clock.ttf", "/manifest.webmanifest", "/icon.svg"):
@@ -224,7 +246,7 @@ class BrowserTests(unittest.TestCase):
     def test_default_ai_no_prayer_takeover_and_idle_during_drag(self):
         self.go_to_page('widgets')
         self.assertIn('AI usage', self.page.locator('#rail').inner_text())
-        self.state['isha']['state'] = '2099-01-01T20:00:00Z'
+        self.state['isha_iqama']['state'] = '2099-01-01T20:00:00Z'
         self.page.evaluate('refresh()')
         self.assertIn('AI usage', self.page.locator('#rail').inner_text())
         self.swipe('#rail', -100)
@@ -259,6 +281,114 @@ class BrowserTests(unittest.TestCase):
         self.assertIn('Good night', self.page.locator('#rail').inner_text())
         self.assertEqual(self.posts, ['/api/morning', '/api/night'])
         self.assertEqual(self.active_page(), 'widgets')
+
+    def test_morning_flow_welcome_tap_weather_then_widgets(self):
+        self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
+        self.page.evaluate('refresh()')
+        welcome = self.page.locator('#flow-overlay')
+        self.assertTrue(welcome.is_visible())
+        self.assertIn('Good Morning, Umair!', welcome.inner_text())
+        welcome.click(position={'x': 10, 'y': 10})
+        self.page.wait_for_timeout(100)
+        self.assertEqual(self.posts, ['/api/morning'])
+        self.assertEqual(welcome.get_attribute('data-flow'), 'weather')
+        self.page.evaluate('finishMorningWeather()')
+        self.assertFalse(welcome.is_visible())
+        self.assertEqual(self.active_page(), 'widgets')
+
+    def test_night_flow_failure_stays_on_welcome(self):
+        self.state['isha_iqama']['state'] = (datetime.now().astimezone() - timedelta(minutes=21)).isoformat()
+        self.page.evaluate('refresh()')
+        welcome = self.page.locator('#flow-overlay')
+        self.assertIn('Good Night, Umair!', welcome.inner_text())
+        self.fail_posts = True
+        welcome.click(position={'x': 10, 'y': 10})
+        self.page.wait_for_timeout(100)
+        self.assertTrue(welcome.is_visible())
+        self.assertEqual(welcome.get_attribute('data-flow'), 'night')
+
+    def test_welcome_without_name_has_clean_punctuation(self):
+        self.state['user_name'] = ''
+        self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
+        self.page.evaluate('refresh()')
+        title = self.page.locator('#flow-overlay h1').inner_text()
+        self.assertEqual(title, 'Good Morning!')
+        self.assertNotIn(',', title)
+
+    def test_reload_after_shuruq_uses_ha_next_rising_cycle(self):
+        tomorrow = datetime.now().astimezone() + timedelta(days=1)
+        self.state['shuruq']['state'] = tomorrow.replace(hour=7, minute=0).isoformat()
+        self.page.evaluate('refresh()')
+        self.assertEqual(self.page.locator('#flow-overlay').get_attribute('data-flow'), 'morning')
+
+    def test_reload_after_isha_uses_ha_next_iqama_cycle(self):
+        next_cycle = datetime.now().astimezone() + timedelta(days=1, minutes=-21)
+        self.state['isha_iqama']['state'] = next_cycle.isoformat()
+        self.page.evaluate('refresh()')
+        self.assertEqual(self.page.locator('#flow-overlay').get_attribute('data-flow'), 'night')
+
+    def test_night_success_opens_clock_and_does_not_return_to_widgets(self):
+        self.go_to_page('widgets')
+        self.state['isha_iqama']['state'] = (datetime.now().astimezone() - timedelta(minutes=21)).isoformat()
+        self.page.evaluate('refresh()')
+        self.page.locator('#flow-overlay').click(position={'x': 10, 'y': 10})
+        self.page.wait_for_timeout(100)
+        self.assertFalse(self.page.locator('#flow-overlay').is_visible())
+        self.assertEqual(self.active_page(), 'clock')
+
+    def test_weather_phase_survives_page_reload(self):
+        self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
+        self.page.evaluate('refresh()')
+        self.page.locator('#flow-overlay').click(position={'x': 10, 'y': 10})
+        self.page.wait_for_timeout(100)
+        self.assertEqual(self.page.evaluate('MORNING_WEATHER_MS'), 120000)
+        self.page.evaluate('localStorage.clear()')
+        self.page.reload()
+        self.page.wait_for_timeout(100)
+        self.assertEqual(self.page.locator('#flow-overlay').get_attribute('data-flow'), 'weather')
+        self.page.evaluate('finishMorningWeather()')
+
+    def test_state_refresh_is_single_flight(self):
+        before = self.state_requests
+        self.page.evaluate('Promise.all([refresh(), refresh(), refresh()])')
+        self.assertEqual(self.state_requests, before + 1)
+
+    def test_ha_reconnect_does_not_dismiss_pending_welcome(self):
+        self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
+        self.page.evaluate('refresh()')
+        self.fail_state = True
+        self.page.evaluate('refresh()')
+        self.assertEqual(self.page.locator('#flow-overlay').get_attribute('data-flow'), 'morning')
+        self.fail_state = False
+        self.page.evaluate('refresh()')
+        self.assertEqual(self.page.locator('#flow-overlay').get_attribute('data-flow'), 'morning')
+
+    def test_flow_pages_fit_landscape_and_portrait(self):
+        output = Path(os.environ.get('ROOM_CLOCK_SCREENSHOTS', '/tmp/room-clock-preview'))
+        output.mkdir(parents=True, exist_ok=True)
+        for width, height in [(800, 360), (390, 844)]:
+            self.page.set_viewport_size({'width': width, 'height': height})
+            for kind in ('morning', 'night'):
+                if kind == 'morning':
+                    self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
+                    self.state['isha_iqama']['state'] = (datetime.now().astimezone() + timedelta(hours=2)).isoformat()
+                else:
+                    self.state['isha_iqama']['state'] = (datetime.now().astimezone() - timedelta(minutes=21)).isoformat()
+                self.page.evaluate('refresh()')
+                self.page.wait_for_timeout(650)
+                overflow = self.page.locator('#flow-overlay').evaluate(
+                    'e=>({x:e.scrollWidth-e.clientWidth,y:e.scrollHeight-e.clientHeight})')
+                self.assertLessEqual(overflow['x'], 1)
+                self.assertLessEqual(overflow['y'], 1)
+                self.page.screenshot(path=str(output / f'{width}x{height}-{kind}-welcome.png'))
+            self.page.evaluate('showMorningWeather(Date.now()+120000)')
+            self.page.wait_for_timeout(650)
+            overflow = self.page.locator('#flow-overlay').evaluate(
+                'e=>({x:e.scrollWidth-e.clientWidth,y:e.scrollHeight-e.clientHeight})')
+            self.assertLessEqual(overflow['x'], 1)
+            self.assertLessEqual(overflow['y'], 1)
+            self.page.screenshot(path=str(output / f'{width}x{height}-weather-flow.png'))
+            self.page.evaluate('finishMorningWeather()')
 
     def test_layout_clock_fitting_and_screenshots(self):
         output = Path(os.environ.get('ROOM_CLOCK_SCREENSHOTS', '/tmp/room-clock-preview'))

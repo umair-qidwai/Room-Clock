@@ -8,7 +8,7 @@ A big, readable room clock with a dark display, swipeable widgets, and optional 
 - Landscape-first layout, portrait support, and reduced-motion styling
 - Swipe the clock vertically in either direction between the default clock-only page and the clock-with-widgets page
 - Swipe the widget card between AI usage, morning, and night; AI usage is the default
-- Optional weather, prayer-time scheduling, room switch, and routine buttons
+- Optional weather, prayer-time scheduling, full-screen morning/night experiences, room switch, and routine buttons
 - Bundled digits and icons: no CDN or third-party analytics
 
 ## Fresh install
@@ -68,13 +68,15 @@ set +a
 | --- | --- |
 | `HASS_URL` | Home Assistant base URL, without `/api` |
 | `HASS_TOKEN` | Home Assistant long-lived access token; server-side only |
+| `USER_NAME` | Optional name used in morning/night greetings; blank produces `Good Morning!` / `Good Night!` |
 | `ROOM_SWITCH_ENTITY` | Your `switch.*` entity for the corner light button |
 | `WEATHER_ENTITY` | Your `weather.*` entity with daily forecast support |
-| `FAJR_ENTITY`, `ISHA_ENTITY` | Sensors whose states are parseable date/time strings |
+| `HA_SHURUQ_ENTITY` | Home Assistant timestamp sensor for Shuruq/sunrise |
+| `HA_ISHA_IQAMA_ENTITY` | Home Assistant timestamp sensor for Isha iqama |
 | `MORNING_AUTOMATION_ENTITY`, `NIGHT_AUTOMATION_ENTITY` | Your `automation.*` entities; buttons trigger with `skip_condition=false` |
 | `AI_USAGE_URL` | Base URL of a separate compatible usage monitor |
 
-Routine completion is saved in ignored `interaction-state.json` and resets on the server's local date. Morning and night routines never take over the widget rail automatically; AI usage remains the default and the routine buttons are manually accessible by swiping. Setting an automation entity does **not** change its Home Assistant triggers. The room control supports the `switch` domain, not arbitrary `light` entities.
+Routine completion is saved in ignored `interaction-state.json` and resets on the server's local date. At Shuruq, the dashboard presents a full-screen greeting; tapping it triggers the configured morning automation, shows the existing weather view for two minutes, then opens widgets. Twenty minutes after Isha iqama, the matching night greeting triggers the night automation and leaves the clock full screen. The welcome remains until tapped, routine calls are idempotent for the daily cycle, and the in-progress weather phase survives a browser refresh. The ordinary widget rail still defaults to AI usage and keeps its manual morning/night cards. Setting an automation entity does **not** change its Home Assistant triggers. The room control supports the `switch` domain, not arbitrary `light` entities.
 
 ### AI usage data flow
 

@@ -1,4 +1,4 @@
-import json, os, time, urllib.request
+import json, logging, os, threading, time, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -11,18 +11,33 @@ STATIC = ROOT / "static"
 HASS_URL = os.environ.get("HASS_URL", "").rstrip("/")
 HASS_TOKEN = os.environ.get("HASS_TOKEN", "")
 AI_URL = os.environ.get("AI_USAGE_URL", "").rstrip("/")
-ENTITIES = {"fajr": os.environ.get("FAJR_ENTITY", ""), "isha": os.environ.get("ISHA_ENTITY", ""), "weather": os.environ.get("WEATHER_ENTITY", ""), "room_switch": os.environ.get("ROOM_SWITCH_ENTITY", os.environ.get("BOYS_SWITCH_ENTITY", ""))}
+USER_NAME = os.environ.get("USER_NAME", "").strip()
+ENTITIES = {
+    "shuruq": os.environ.get("HA_SHURUQ_ENTITY", ""),
+    "isha_iqama": os.environ.get("HA_ISHA_IQAMA_ENTITY", ""),
+    "weather": os.environ.get("WEATHER_ENTITY", ""),
+    "room_switch": os.environ.get("ROOM_SWITCH_ENTITY", os.environ.get("BOYS_SWITCH_ENTITY", "")),
+}
 MORNING_AUTOMATION = os.environ.get("MORNING_AUTOMATION_ENTITY", "")
 NIGHT_AUTOMATION = os.environ.get("NIGHT_AUTOMATION_ENTITY", "")
+STATE_LOCK = threading.Lock()
+log = logging.getLogger("room-clock")
 app = FastAPI(title="Room Clock")
 
 def today(): return datetime.now().astimezone().date().isoformat()
+def fresh_state(): return {"date": today(), "morning_done": False, "night_done": False, "morning_weather_until": 0, "morning_inflight": False, "night_inflight": False}
 def load_state():
-    try: return json.loads(STATE_FILE.read_text())
-    except Exception: return {"date": today(), "morning_done": False, "night_done": False}
-def save_state(s): STATE_FILE.write_text(json.dumps(s, indent=2) + "\n")
+    try:
+        state_data = json.loads(STATE_FILE.read_text())
+        state_data.setdefault("morning_weather_until", 0)
+        return state_data
+    except Exception: return fresh_state()
+def save_state(s):
+    temporary = STATE_FILE.with_suffix(".tmp")
+    temporary.write_text(json.dumps(s, indent=2) + "\n")
+    os.replace(temporary, STATE_FILE)
 def reset_daily(s):
-    if s.get("date") != today(): s = {"date": today(), "morning_done": False, "night_done": False}; save_state(s)
+    if s.get("date") != today(): s = fresh_state(); save_state(s)
     return s
 
 def ha(path, method="GET", payload=None):
@@ -51,12 +66,12 @@ def weather_forecast():
 @app.get("/api/state")
 def dashboard_state():
     s = reset_daily(load_state())
-    result = {"date": s["date"], "morning_done": s["morning_done"], "night_done": s["night_done"], "entities": ENTITIES, "morning_automation_configured": bool(MORNING_AUTOMATION), "night_automation_configured": bool(NIGHT_AUTOMATION)}
+    result = {"date": s["date"], "server_now": time.time(), "morning_done": s["morning_done"], "night_done": s["night_done"], "morning_weather_until": s.get("morning_weather_until", 0), "user_name": USER_NAME, "entities": ENTITIES, "morning_automation_configured": bool(MORNING_AUTOMATION), "night_automation_configured": bool(NIGHT_AUTOMATION)}
     # These are independent network calls. Fetch them concurrently so a slow weather
     # forecast cannot hold up the clock, light state, or AI rings.
     jobs = {
-        "fajr": lambda: state(ENTITIES["fajr"]),
-        "isha": lambda: state(ENTITIES["isha"]),
+        "shuruq": lambda: state(ENTITIES["shuruq"]),
+        "isha_iqama": lambda: state(ENTITIES["isha_iqama"]),
         "weather": lambda: state(ENTITIES["weather"]),
         "room": lambda: state(ENTITIES["room_switch"]),
         "usage": ai_usage,
@@ -102,9 +117,37 @@ def toggle_room():
 
 def run_automation(entity, key):
     if not entity: raise HTTPException(409, f"{key} automation placeholder is not configured yet")
-    ha("/api/services/automation/trigger", "POST", {"entity_id": entity, "skip_condition": False})
-    s = reset_daily(load_state()); s[key + "_done"] = True; save_state(s)
-    return {"ok": True, "triggered": entity}
+    # Serialize the check, HA call, and persistence so double taps and concurrent
+    # requests cannot trigger the same routine twice in one daily cycle.
+    with STATE_LOCK:
+        s = reset_daily(load_state())
+        if s.get(key + "_done"):
+            return {"ok": True, "triggered": entity, "already_done": True, "morning_weather_until": s.get("morning_weather_until", 0)}
+        # A durable in-flight marker closes the crash window between HA accepting
+        # the trigger and the completion write. Recovery assumes HA accepted it;
+        # retrying would be less safe than leaving the routine incomplete locally.
+        if s.get(key + "_inflight"):
+            s[key + "_done"] = True
+            s[key + "_inflight"] = False
+            if key == "morning" and not s.get("morning_weather_until"):
+                s["morning_weather_until"] = time.time() + 120
+            save_state(s)
+            return {"ok": True, "triggered": entity, "already_done": True, "morning_weather_until": s.get("morning_weather_until", 0)}
+        s[key + "_inflight"] = True
+        save_state(s)
+        try:
+            ha("/api/services/automation/trigger", "POST", {"entity_id": entity, "skip_condition": False})
+        except Exception as exc:
+            s[key + "_inflight"] = False
+            save_state(s)
+            log.exception("Home Assistant %s routine failed", key)
+            raise HTTPException(503, f"Could not start the {key} routine") from exc
+        s[key + "_done"] = True
+        s[key + "_inflight"] = False
+        if key == "morning":
+            s["morning_weather_until"] = time.time() + 120
+        save_state(s)
+    return {"ok": True, "triggered": entity, "already_done": False, "morning_weather_until": s.get("morning_weather_until", 0)}
 
 @app.post("/api/morning")
 def morning(): return run_automation(MORNING_AUTOMATION, "morning")
