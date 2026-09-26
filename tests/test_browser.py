@@ -92,11 +92,11 @@ class BrowserTests(unittest.TestCase):
             self.swipe('.page:not([inert]) .clock-pane', -150)
         self.assertEqual(self.active_page(), name)
 
-    def test_graphite_theme(self):
+    def test_ice_blue_theme(self):
         style = self.page.locator('.clock-only .time').evaluate('''e => {
             const s=getComputedStyle(e);return {color:s.color,font:s.fontFamily,shadow:s.textShadow};
         }''')
-        self.assertEqual(style['color'], 'rgb(149, 157, 168)')
+        self.assertEqual(style['color'], 'rgb(167, 194, 223)')
         self.assertIn('OxaniumClock', style['font'])
         self.assertEqual(style['shadow'], 'none')
 
