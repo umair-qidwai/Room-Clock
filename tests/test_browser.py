@@ -320,7 +320,12 @@ class BrowserTests(unittest.TestCase):
         self.assertTrue(self.page.locator('.hourly-grid').is_visible())
         self.assertGreaterEqual(self.page.locator('.hour-card').count(), 4)
         self.assertLessEqual(self.page.locator('.hour-card').count(), 8)
-        self.assertIn('hourly forecast', self.page.locator('#flow-overlay').inner_text().lower())
+        self.assertIn('today', self.page.locator('#flow-overlay').inner_text().lower())
+        self.assertIn('High', self.page.locator('#flow-overlay').inner_text())
+        self.assertIn('Low', self.page.locator('#flow-overlay').inner_text())
+        self.assertNotIn('hourly forecast', self.page.locator('#flow-overlay').inner_text().lower())
+        self.page.locator('#flow-overlay').click(position={'x': 10, 'y': 10})
+        self.assertFalse(self.page.locator('#flow-overlay').is_visible())
 
     def test_night_flow_failure_stays_on_welcome(self):
         self.state['isha_iqama']['state'] = (datetime.now().astimezone() - timedelta(minutes=21)).isoformat()
