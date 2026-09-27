@@ -50,9 +50,9 @@ def state(entity): return ha(f"/api/states/{entity}") if entity else {}
 def ai_usage():
     if not AI_URL: return {}
     with urllib.request.urlopen(AI_URL + "/api/usage", timeout=5) as r: return json.loads(r.read())
-def weather_forecast():
+def weather_forecast(forecast_type="daily"):
     if not ENTITIES["weather"]: return []
-    try: response = ha("/api/services/weather/get_forecasts?return_response", "POST", {"entity_id": ENTITIES["weather"], "type": "daily"})
+    try: response = ha("/api/services/weather/get_forecasts?return_response", "POST", {"entity_id": ENTITIES["weather"], "type": forecast_type})
     except Exception: return []
     def find(v):
         if isinstance(v, dict):
@@ -85,7 +85,11 @@ def dashboard_state():
     return result
 
 @app.get("/api/weather")
-def weather_data(): return {"forecast": weather_forecast()}
+def weather_data():
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        daily = pool.submit(weather_forecast, "daily")
+        hourly = pool.submit(weather_forecast, "hourly")
+        return {"forecast": daily.result(), "hourly": hourly.result()}
 
 def wait_for_state(entity, expected, timeout=6):
     # Return HA's confirmed state, not the state we requested.

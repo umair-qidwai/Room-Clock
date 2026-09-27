@@ -81,7 +81,10 @@ class BrowserTests(unittest.TestCase):
             else:
                 route.fulfill(json=self.state)
         elif path == "/api/weather":
-            route.fulfill(json={"forecast": []})
+            route.fulfill(json={"forecast": [], "hourly": [
+                {"datetime": (datetime.now().astimezone() + timedelta(hours=hour)).isoformat(), "temperature": 72-hour,
+                 "condition": "clear", "precipitation_probability": hour * 5}
+                for hour in range(8)]})
         elif path in ("/", "/oswald-clock.ttf", "/manifest.webmanifest", "/icon.svg"):
             file = ROOT / "static" / ("index.html" if path == "/" else path[1:])
             route.fulfill(path=str(file))
@@ -295,6 +298,16 @@ class BrowserTests(unittest.TestCase):
         self.page.evaluate('finishMorningWeather()')
         self.assertFalse(welcome.is_visible())
         self.assertEqual(self.active_page(), 'widgets')
+
+    def test_morning_weather_shows_readable_hourly_forecast(self):
+        self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
+        self.page.evaluate('refresh()')
+        self.page.locator('#flow-overlay').click(position={'x': 10, 'y': 10})
+        self.page.wait_for_timeout(150)
+        self.assertTrue(self.page.locator('.hourly-grid').is_visible())
+        self.assertGreaterEqual(self.page.locator('.hour-card').count(), 4)
+        self.assertLessEqual(self.page.locator('.hour-card').count(), 8)
+        self.assertIn('hourly forecast', self.page.locator('#flow-overlay').inner_text().lower())
 
     def test_night_flow_failure_stays_on_welcome(self):
         self.state['isha_iqama']['state'] = (datetime.now().astimezone() - timedelta(minutes=21)).isoformat()
