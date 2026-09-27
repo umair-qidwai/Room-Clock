@@ -307,6 +307,20 @@ class BrowserTests(unittest.TestCase):
         self.assertTrue(welcome.is_visible())
         self.assertEqual(welcome.get_attribute('data-flow'), 'night')
 
+    def test_welcome_is_a_glass_notification_over_the_clock(self):
+        self.state['isha_iqama']['state'] = (datetime.now().astimezone() - timedelta(minutes=21)).isoformat()
+        self.page.evaluate('refresh()')
+        result = self.page.locator('#flow-overlay').evaluate('''e => ({
+            background: getComputedStyle(e).backgroundColor,
+            title: e.querySelector('.flow-title').textContent,
+            lightTop: getComputedStyle(document.querySelector('#light')).top,
+            lightBottom: getComputedStyle(document.querySelector('#light')).bottom
+        })''')
+        self.assertEqual(result['background'], 'rgba(0, 0, 0, 0)')
+        self.assertEqual(result['title'], 'Good Night, Umair!')
+        self.assertNotEqual(result['lightTop'], '8px')
+        self.assertNotEqual(result['lightBottom'], 'auto')
+
     def test_welcome_without_name_has_clean_punctuation(self):
         self.state['user_name'] = ''
         self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()

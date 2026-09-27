@@ -33,7 +33,7 @@
 .app{padding:8px 0 62px;gap:12px}.app.clock-only{padding:8px 0 0}.widgets{height:100%;max-width:none}
 /* On the full-screen face the light lives in the date header, not the ink area.
    The widget page keeps its separate bottom control lane. */
-.clock-mode .light-toggle{top:8px;bottom:auto;width:34px;height:34px;border-radius:11px}
+.clock-mode .light-toggle{top:auto;bottom:max(12px,env(safe-area-inset-bottom));right:0;width:28px;height:28px;border-radius:10px}.clock-mode .light-toggle svg{width:16px;height:16px}
 .clock-only .date{padding:0 48px;min-height:34px}
 .clock-pane{touch-action:pan-x;user-select:none;cursor:grab}
 .clock-pane:focus-visible{outline:1px solid var(--line);outline-offset:2px}
@@ -45,6 +45,7 @@
 .flow-surface{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:clamp(28px,7vw,84px);text-align:center;isolation:isolate}
 .flow-surface::before{content:"";position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 50% 30%,rgba(104,113,117,.16),transparent 54%),linear-gradient(145deg,#020303,#000 58%)}
 .flow-overlay[data-flow="morning"] .flow-surface::before{background:radial-gradient(ellipse at 52% 26%,rgba(128,117,91,.2),transparent 55%),linear-gradient(145deg,#050504,#000 62%)}
+.welcome-notification{background:transparent}.welcome-notification .flow-surface{inset:clamp(70px,10vh,120px) clamp(18px,3vw,42px) auto auto;width:min(680px,calc(100vw - 36px));min-height:190px;display:block;padding:clamp(24px,3vw,38px);text-align:left;border:1px solid rgba(150,160,162,.28);border-radius:28px;background:linear-gradient(135deg,rgba(93,104,107,.28),rgba(20,25,26,.88));box-shadow:0 18px 48px rgba(0,0,0,.42),inset 0 1px rgba(220,230,230,.08);backdrop-filter:blur(14px);isolation:isolate}.welcome-notification .flow-surface::before{inset:1px;border-radius:27px;background:linear-gradient(105deg,rgba(220,230,230,.07),transparent 35%);z-index:0;pointer-events:none}.welcome-notification .flow-surface>*{position:relative;z-index:1}.welcome-notification .flow-kicker{margin:0 0 12px;font-size:clamp(10px,1.2vw,14px)}.welcome-notification .flow-title{font-size:clamp(38px,5vw,66px);line-height:1}.welcome-notification .flow-rule{margin:18px 0;width:64px}.welcome-notification .flow-helper{position:static;margin-top:12px;font-size:clamp(13px,1.5vw,18px);color:#7f898c}.welcome-notification .flow-error{margin-top:12px}
 .flow-kicker{font-size:clamp(9px,1.3vw,13px);font-weight:600;letter-spacing:.28em;text-transform:uppercase;color:#596265;margin-bottom:clamp(12px,3vh,28px)}
 .flow-title{margin:0;max-width:94vw;font-family:ReferenceClock,Arial,sans-serif;font-weight:800;font-size:clamp(50px,10vw,132px);line-height:.95;letter-spacing:-.035em;color:#7b8487}
 .flow-overlay[data-flow="morning"] .flow-title{color:#858074}.flow-rule{width:clamp(42px,7vw,86px);height:1px;background:#343a3c;margin:clamp(22px,5vh,48px) 0}
@@ -84,8 +85,8 @@ function showWelcome(kind,error=''){
   clearTimeout(morningWeatherTimer);flowKind=kind;flowBusy=false;
   const overlay=$('#flow-overlay'),morning=kind==='morning',name=String(data.user_name||'').trim();
   const title=`Good ${morning?'Morning':'Night'}${name?', '+esc(name):''}!`;
-  overlay.dataset.flow=kind;overlay.className='flow-overlay visible';overlay.setAttribute('aria-hidden','false');overlay.setAttribute('role','button');overlay.setAttribute('aria-label',`Start ${kind} routine`);
-  overlay.innerHTML=`<div class="flow-surface"><div class="flow-kicker">${morning?'A new day':'Time to unwind'}</div><h1 class="flow-title">${title}</h1><div class="flow-rule"></div><div class="flow-error">${esc(error)}</div><div class="flow-helper">Tap anywhere to begin your ${kind} routine.</div></div>`;
+  overlay.dataset.flow=kind;overlay.className='flow-overlay welcome-notification visible';overlay.setAttribute('aria-hidden','false');overlay.setAttribute('role','button');overlay.setAttribute('aria-label',`Start ${kind} routine`);
+  overlay.innerHTML=`<div class="flow-surface"><div class="flow-kicker">${morning?'☀ Morning routine ready':'☾ Night routine ready'}</div><h1 class="flow-title">${title}</h1><div class="flow-rule"></div><div class="flow-error">${esc(error)}</div><div class="flow-helper">Tap anywhere to start</div></div>`;
 }
 function activatePage(index){
   pageIndex=index;pages.forEach((page,i)=>{const inactive=i!==pageIndex;if(inactive)page.setAttribute('inert','');else page.removeAttribute('inert');page.setAttribute('aria-hidden',String(inactive));page.classList.remove('settling','preview');page.style.transform=''});
@@ -259,22 +260,14 @@ function paintTime(value,previous,animate){let face=document.createElement('span
       row.style.marginBottom=Math.max(0,date.offsetHeight+parseFloat(getComputedStyle(pane).gap)+parseFloat(pageStyle.paddingTop)-parseFloat(pageStyle.paddingBottom))+'px';
     }
     let m=measureClockInk(face.dataset.value);
+    // Keep the clock naturally centered; only shrink it when the bottom light
+    // control would actually overlap its painted bounds.
+    let heightBudget=row.clientHeight-2;
     // Fit uniformly, then measure at the actual rendered size: font hinting
     // rounds glyph bounds differently from a scaled 1000px measurement.
-    let scale=Math.min((row.clientWidth-2)/m.width,(row.clientHeight-2)/m.height);
-    t.style.fontSize=(100*scale)+'px';
-    const actualSize=parseFloat(getComputedStyle(t).fontSize);
-    scale=actualSize/100;
-    m=measureClockInk(face.dataset.value,actualSize);
-    face.style.width=(m.width*scale)+'px';face.style.height=(m.height*scale)+'px';
-    face.style.left=((row.clientWidth-m.width*scale)/2)+'px';
-    face.style.top=((row.clientHeight-m.height*scale)/2)+'px';
-    Array.from(face.children).forEach((slot,i)=>{
-      const glyph=m.glyphs[i];
-      slot.style.left=((glyph.x-m.left)*scale)+'px';
-      slot.style.top=((m.ascent-glyph.baseline)*scale)+'px';
-      slot.style.width=(glyph.width*scale)+'px';
-    });
+    let scale=Math.min((row.clientWidth-2)/m.width,heightBudget/m.height);
+    const placeFace=baseSize=>{t.style.fontSize=baseSize+'px';const actualSize=parseFloat(getComputedStyle(t).fontSize),s=actualSize/100; m=measureClockInk(face.dataset.value,actualSize);face.style.width=(m.width*s)+'px';face.style.height=(m.height*s)+'px';face.style.left=((row.clientWidth-m.width*s)/2)+'px';face.style.top=((row.clientHeight-m.height*s)/2)+'px';Array.from(face.children).forEach((slot,i)=>{const glyph=m.glyphs[i];slot.style.left=((glyph.x-m.left)*s)+'px';slot.style.top=((m.ascent-glyph.baseline)*s)+'px';slot.style.width=(glyph.width*s)+'px'});face.style.transform='none';return s};
+    scale=placeFace(100*scale);
   });
 }
 function fitGauges(){document.querySelectorAll('.ring').forEach(r=>{const name=r.querySelector('.ring-name');r.style.setProperty('--gauge-size',Math.max(24,Math.min(140,r.clientWidth-4,r.clientHeight-name.offsetHeight-9))+'px')})}
