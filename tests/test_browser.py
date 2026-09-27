@@ -246,6 +246,18 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(self.page.locator('#rail .card').count(), 1)
         self.assertEqual(self.posts, [])
 
+    def test_day_summary_widget_opens_and_dismisses_anywhere(self):
+        self.page.evaluate('activatePage(0)')
+        self.page.evaluate('selectWidget(3,0,false)')
+        self.assertIn('today', self.page.locator('#rail').inner_text().lower())
+        self.page.locator('[data-summary-open]').click()
+        overlay = self.page.locator('#flow-overlay')
+        self.assertTrue(overlay.is_visible())
+        self.assertEqual(overlay.get_attribute('data-flow'), 'summary')
+        self.assertIn('today', overlay.inner_text().lower())
+        overlay.click(position={'x': 5, 'y': 5})
+        self.assertFalse(overlay.is_visible())
+
     def test_default_ai_no_prayer_takeover_and_idle_during_drag(self):
         self.go_to_page('widgets')
         self.assertIn('AI usage', self.page.locator('#rail').inner_text())
