@@ -321,6 +321,13 @@ class BrowserTests(unittest.TestCase):
         self.assertNotEqual(result['lightTop'], '8px')
         self.assertNotEqual(result['lightBottom'], 'auto')
 
+    def test_light_control_has_same_geometry_on_both_pages(self):
+        clock = self.page.locator('#light').bounding_box()
+        self.go_to_page('widgets')
+        widgets = self.page.locator('#light').bounding_box()
+        for key in ('x', 'y', 'width', 'height'):
+            self.assertAlmostEqual(clock[key], widgets[key], delta=0.5, msg=key)
+
     def test_welcome_without_name_has_clean_punctuation(self):
         self.state['user_name'] = ''
         self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
