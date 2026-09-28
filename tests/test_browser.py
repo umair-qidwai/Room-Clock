@@ -277,6 +277,9 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(failures, [])
 
     def test_weather_redesign_readability_bounds_and_shared_renderer(self):
+        self.state['night_done'] = True
+        self.state['morning_done'] = True
+        self.page.evaluate('setFlowVisible(false)')
         output = Path(os.environ.get('ROOM_CLOCK_SCREENSHOTS', '/tmp/room-clock-weather-redesign'))
         output.mkdir(parents=True, exist_ok=True)
         self.page.evaluate('''() => {clock=()=>{};paintTime('8:08',null,false);
