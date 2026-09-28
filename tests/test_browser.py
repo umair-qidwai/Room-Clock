@@ -320,6 +320,7 @@ class BrowserTests(unittest.TestCase):
         self.assertTrue(self.page.locator('.hourly-grid').is_visible())
         self.assertGreaterEqual(self.page.locator('.hour-card').count(), 4)
         self.assertLessEqual(self.page.locator('.hour-card').count(), 8)
+        self.assertLessEqual(max((self.page.locator('.hour-card').nth(i).bounding_box()['y'] + self.page.locator('.hour-card').nth(i).bounding_box()['height']) for i in range(self.page.locator('.hour-card').count())), self.page.viewport_size['height'])
         self.assertIn('today', self.page.locator('#flow-overlay').inner_text().lower())
         self.assertIn('High', self.page.locator('#flow-overlay').inner_text())
         self.assertIn('Low', self.page.locator('#flow-overlay').inner_text())
