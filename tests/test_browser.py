@@ -302,6 +302,40 @@ class BrowserTests(unittest.TestCase):
             self.page.evaluate('dismissWeather()')
         self.assertEqual(self.posts, [])
 
+    def test_hourly_columns_are_borderless_and_larger(self):
+        self.page.evaluate('openHourlyWeather()')
+        styles = self.page.locator('.hour-card').evaluate_all('''items => items.map(e => {
+            const s=getComputedStyle(e), font=q=>parseFloat(getComputedStyle(e.querySelector(q)).fontSize);
+            return {background:s.backgroundColor,image:s.backgroundImage,
+                borders:[s.borderTopWidth,s.borderRightWidth,s.borderBottomWidth,s.borderLeftWidth],
+                shadow:s.boxShadow,time:font('.hour'),temp:font('.temp'),
+                icon:e.querySelector('.weather-symbol').getBoundingClientRect().width};
+        })''')
+        self.assertEqual(len(styles), 6)
+        for style in styles:
+            self.assertEqual(style['background'], 'rgba(0, 0, 0, 0)')
+            self.assertEqual(style['image'], 'none')
+            self.assertEqual(style['borders'], ['0px'] * 4)
+            self.assertEqual(style['shadow'], 'none')
+            self.assertGreaterEqual(style['time'], 20)
+            self.assertGreaterEqual(style['temp'], 44)
+            self.assertGreaterEqual(style['icon'], 48)
+        self.assert_weather_bounds('#flow-overlay .flow-surface')
+        self.page.evaluate('''() => {
+            const conditions=['partlycloudy','lightning-rainy','snowy-rainy','pouring','cloudy','clear-night'];
+            data.weather_hourly=data.weather_hourly.map((item,i)=>({...item,
+                condition:conditions[i%conditions.length],temperature:i%2?-12:105,
+                precipitation_probability:100}));
+        }''')
+        for width,height in [(800,360),(640,320),(390,844)]:
+            self.page.set_viewport_size({'width':width,'height':height})
+            self.page.evaluate('openHourlyWeather()')
+            self.assert_weather_bounds('#flow-overlay .flow-surface')
+            for icon in self.page.locator('.hour-card .weather-symbol').all():
+                box=icon.bounding_box()
+                self.assertGreaterEqual(box['y'], 0)
+                self.assertLessEqual(box['y']+box['height'], height)
+
     def test_default_ai_no_prayer_takeover_and_idle_during_drag(self):
         self.go_to_page('widgets')
         self.assertIn('AI usage', self.page.locator('#rail').inner_text())

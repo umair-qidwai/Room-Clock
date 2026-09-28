@@ -74,9 +74,10 @@
 .hourly-current .label{font-size:11px;letter-spacing:.16em;color:#8d9da6}
 .hourly-header h1{margin:2px 0 0;font-size:64px;font-weight:500;line-height:1.15;letter-spacing:-.05em;color:#c0cbd0;font-variant-numeric:tabular-nums}
 .hourly-grid{min-height:0;min-width:0;display:grid;grid-template-columns:repeat(var(--hour-count,6),minmax(0,1fr));gap:10px}
-.hour-card{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;padding:12px 6px;border:1px solid #28343c;border-radius:16px;background:#10181d;text-align:center}
-.hour-card .hour{font-size:14px;color:#a2b1ba;line-height:1.4;white-space:nowrap}
-.hour-card .temp{font-size:32px;line-height:1.2;letter-spacing:-.04em;color:#c0cbd0;font-weight:500;white-space:nowrap}
+.hour-card{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:0;border:0;background:none;text-align:center}
+.hour-card .weather-symbol{width:48px;height:48px;flex-shrink:0}
+.hour-card .hour{font-size:20px;color:#a2b1ba;line-height:1.4;white-space:nowrap}
+.hour-card .temp{font-size:44px;line-height:1.2;letter-spacing:-.04em;color:#c0cbd0;font-weight:500;white-space:nowrap}
 .hour-card .condition{font-size:11px;line-height:1.35;color:#94a6b1;overflow-wrap:anywhere;max-width:100%}
 .hour-card .rain{font-size:11px;line-height:1.4;color:#8298a6;min-height:16px}
 .hourly-empty{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:22px;color:#94a6b1;font-size:18px}
@@ -87,8 +88,8 @@
  .hourly-current{gap:12px}.hourly-current .weather-symbol{width:32px;height:32px}
  .hourly-header .weather-range{gap:18px}.hourly-header .weather-range strong{font-size:36px}
  .hourly-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px}
- .hour-card{gap:14px}.hour-card .temp{font-size:40px}.hour-card .weather-symbol{width:42px;height:42px}
- .hour-card .hour{font-size:17px}.hour-card .condition,.hour-card .rain{font-size:13px}
+ .hour-card{gap:12px}.hour-card .temp{font-size:52px}.hour-card .weather-symbol{width:60px;height:60px}
+ .hour-card .hour{font-size:22px}.hour-card .condition,.hour-card .rain{font-size:13px}
  .summary-temp{font-size:64px}.summary-card .weather-range strong{font-size:34px}
 }
 @keyframes flowFade{from{opacity:0}to{opacity:1}}
@@ -96,8 +97,8 @@
  .flow-title{font-size:clamp(46px,11vw,92px)}.flow-helper{bottom:16px}
  .flow-weather .flow-surface{padding:16px 24px;gap:12px}
  .hourly-header{padding-bottom:12px}.hourly-header h1{font-size:56px}
- .hour-card{gap:6px;padding:8px 5px}.hour-card .weather-symbol{width:30px;height:30px}
- .hour-card .temp{font-size:30px}.summary-card{gap:8px;padding:14px}
+ .hour-card{gap:4px}.hour-card .weather-symbol{width:clamp(40px,13.34vh,48px);height:clamp(40px,13.34vh,48px)}
+ .hour-card .temp{font-size:clamp(36px,12.23vh,44px)}.summary-card{gap:8px;padding:14px}
  .summary-temp{font-size:52px}.summary-card .weather-range{padding-top:10px}
 }
 </style></head><body class="clock-mode"><button class="light-toggle unknown" id="light" aria-label="Room light state loading" aria-busy="true" aria-pressed="mixed" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M8.5 14.5C7.55 13.62 7 12.25 7 10.75A5 5 0 0 1 17 10.75c0 1.5-.55 2.87-1.5 3.75-.72.67-1.05 1.1-1.2 1.5h-4.6c-.15-.4-.48-.83-1.2-1.5Z"/><path d="M12 2v2M4.93 4.93l1.42 1.42M2 12h2M19.07 4.93l-1.42 1.42M20 12h2"/></svg></button><main id="pages" aria-label="Clock pages"><div class="app page" data-page="widgets" inert aria-hidden="true"><section class="clock-pane" tabindex="0" aria-label="Clock. Swipe up or down for clock only."><div id="date" class="date">Loading…</div><div class="clock-row"><div id="time" class="time">--:--</div></div></section><aside class="widgets"><div class="rail-title">Widgets</div><div id="rail" class="rail"></div><div id="dots" class="dots" aria-label="Widget pages"></div></aside></div><div class="app page clock-only" data-page="clock"><section class="clock-pane" tabindex="0" aria-label="Clock. Swipe up or down for widgets."><div class="date">Loading…</div><div class="clock-row"><div class="time">--:--</div></div></section></div></main><div id="flow-overlay" class="flow-overlay" data-flow="" role="button" tabindex="-1" aria-live="polite"></div><div id="toast" class="toast"></div><script>
