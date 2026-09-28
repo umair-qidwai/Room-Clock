@@ -81,7 +81,7 @@ class BrowserTests(unittest.TestCase):
             else:
                 route.fulfill(json=self.state)
         elif path == "/api/weather":
-            route.fulfill(json={"forecast": [], "hourly": [
+            route.fulfill(json={"forecast": [{"temperature":78,"templow":56,"condition":"partlycloudy"}], "hourly": [
                 {"datetime": (datetime.now().astimezone() + timedelta(hours=hour)).isoformat(), "temperature": 72-hour,
                  "condition": "clear", "precipitation_probability": hour * 5}
                 for hour in range(8)]})
@@ -259,6 +259,49 @@ class BrowserTests(unittest.TestCase):
         overlay.click(position={'x': 5, 'y': 5})
         self.assertFalse(overlay.is_visible())
 
+    def assert_weather_bounds(self, selector):
+        failures = self.page.locator(selector).evaluate('''root => {
+            const bounds=root.getBoundingClientRect(), failures=[];
+            for(const e of [root,...root.querySelectorAll('*')]){
+                if(e instanceof SVGElement || !e.getClientRects().length)continue;
+                const r=e.getBoundingClientRect();
+                if(r.left<bounds.left-1||r.right>bounds.right+1||r.top<bounds.top-1||r.bottom>bounds.bottom+1||r.bottom>innerHeight+1||e.scrollWidth>e.clientWidth+1||e.scrollHeight>e.clientHeight+1)failures.push(e.className);
+                for(const node of e.childNodes){
+                    if(node.nodeType!==Node.TEXT_NODE||!node.textContent.trim())continue;
+                    const range=document.createRange();range.selectNodeContents(node);
+                    for(const ink of range.getClientRects())if(ink.left<r.left-1||ink.right>r.right+1||ink.top<r.top-1||ink.bottom>r.bottom+1)failures.push('text:'+e.className);
+                }
+            }
+            return failures;
+        }''')
+        self.assertEqual(failures, [])
+
+    def test_weather_redesign_readability_bounds_and_shared_renderer(self):
+        output = Path(os.environ.get('ROOM_CLOCK_SCREENSHOTS', '/tmp/room-clock-weather-redesign'))
+        output.mkdir(parents=True, exist_ok=True)
+        self.page.evaluate('''() => {clock=()=>{};paintTime('8:08',null,false);
+            data.weather_forecast=[{temperature:78,templow:56,condition:'partlycloudy'}];
+        }''')
+        for width,height in [(800,360),(390,844),(640,320)]:
+            self.page.set_viewport_size({'width':width,'height':height})
+            self.page.evaluate('activatePage(0);selectWidget(3,0,false)')
+            self.page.wait_for_timeout(100)
+            self.assertEqual(self.page.locator('.summary-card .weather-range strong').count(), 2)
+            self.assertGreaterEqual(self.page.locator('.summary-card .weather-range strong').first.evaluate('e=>parseFloat(getComputedStyle(e).fontSize)'), 28)
+            self.assert_weather_bounds('.summary-card')
+            self.page.screenshot(path=str(output/f'{width}x{height}-weather-widget.png'))
+            self.page.locator('[data-summary-open]').click()
+            self.page.wait_for_timeout(650)
+            manual = self.page.locator('#flow-overlay .flow-surface').inner_html()
+            self.assertGreaterEqual(self.page.locator('.hourly-header .weather-range strong').first.evaluate('e=>parseFloat(getComputedStyle(e).fontSize)'), 36)
+            self.assertGreater(self.page.locator('.hourly-grid').bounding_box()['width'], width*.85)
+            self.assert_weather_bounds('#flow-overlay .flow-surface')
+            self.page.screenshot(path=str(output/f'{width}x{height}-hourly-weather.png'))
+            self.page.evaluate('showMorningWeather(serverNow().getTime()+120000)')
+            self.assertEqual(self.page.locator('#flow-overlay .flow-surface').inner_html(), manual)
+            self.page.evaluate('dismissWeather()')
+        self.assertEqual(self.posts, [])
+
     def test_default_ai_no_prayer_takeover_and_idle_during_drag(self):
         self.go_to_page('widgets')
         self.assertIn('AI usage', self.page.locator('#rail').inner_text())
@@ -322,8 +365,8 @@ class BrowserTests(unittest.TestCase):
         self.assertLessEqual(self.page.locator('.hour-card').count(), 8)
         self.assertLessEqual(max((self.page.locator('.hour-card').nth(i).bounding_box()['y'] + self.page.locator('.hour-card').nth(i).bounding_box()['height']) for i in range(self.page.locator('.hour-card').count())), self.page.viewport_size['height'])
         self.assertIn('today', self.page.locator('#flow-overlay').inner_text().lower())
-        self.assertIn('High', self.page.locator('#flow-overlay').inner_text())
-        self.assertIn('Low', self.page.locator('#flow-overlay').inner_text())
+        self.assertIn('high', self.page.locator('#flow-overlay').inner_text().lower())
+        self.assertIn('low', self.page.locator('#flow-overlay').inner_text().lower())
         self.assertNotIn('hourly forecast', self.page.locator('#flow-overlay').inner_text().lower())
         self.page.locator('#flow-overlay').click(position={'x': 10, 'y': 10})
         self.assertFalse(self.page.locator('#flow-overlay').is_visible())
@@ -400,6 +443,47 @@ class BrowserTests(unittest.TestCase):
         self.page.wait_for_timeout(100)
         self.assertEqual(self.page.locator('#flow-overlay').get_attribute('data-flow'), 'weather')
         self.page.evaluate('finishMorningWeather()')
+
+    def test_weather_dismissal_survives_refresh_reload_and_next_day(self):
+        self.state['morning_done'] = True
+        self.state['morning_weather_until'] = time.time()+120
+        self.page.evaluate('refresh()')
+        overlay = self.page.locator('#flow-overlay')
+        overlay.locator('.hour-card').first.click()
+        self.page.evaluate('refresh()')
+        self.assertFalse(overlay.is_visible())
+        self.page.reload()
+        self.page.wait_for_timeout(150)
+        self.assertFalse(overlay.is_visible())
+        # A deliberate widget open remains available, but never restarts the schedule.
+        self.page.evaluate('openHourlyWeather()')
+        self.page.evaluate('refresh()')
+        self.assertEqual(overlay.get_attribute('data-flow'), 'hourly')
+        overlay.click(position={'x':799,'y':359})
+        self.page.reload()
+        self.page.wait_for_timeout(150)
+        self.assertFalse(overlay.is_visible())
+        self.state['date'] = (datetime.now().astimezone()+timedelta(days=1)).date().isoformat()
+        self.page.evaluate('refresh()')
+        self.assertEqual(overlay.get_attribute('data-flow'), 'weather')
+        self.assertEqual(self.posts, [])
+
+    def test_weather_two_minute_deadline_and_manual_view_has_no_timer(self):
+        self.fail_state = True  # Freeze server clock responses while virtual time advances.
+        self.page.clock.install()
+        self.page.evaluate('serverClockOffset=0;showMorningWeather(serverNow().getTime()+120000)')
+        overlay = self.page.locator('#flow-overlay')
+        self.page.clock.run_for(119000)
+        self.assertTrue(overlay.is_visible())
+        self.page.evaluate('showMorningWeather(morningWeatherExpires)')
+        self.page.clock.run_for(1001)
+        self.assertFalse(overlay.is_visible())
+        self.assertEqual(self.active_page(), 'widgets')
+        self.page.evaluate('openHourlyWeather()')
+        self.page.clock.run_for(120001)
+        self.assertTrue(overlay.is_visible())
+        overlay.click(position={'x':5,'y':5})
+        self.assertFalse(overlay.is_visible())
 
     def test_state_refresh_is_single_flight(self):
         before = self.state_requests
