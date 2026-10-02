@@ -392,6 +392,15 @@ class BrowserTests(unittest.TestCase):
         self.assertFalse(welcome.is_visible())
         self.assertEqual(self.active_page(), 'widgets')
 
+    def test_welcome_swipe_contact_runs_routine_once(self):
+        self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
+        self.page.evaluate('refresh()')
+        welcome = self.page.locator('#flow-overlay')
+        self.assertTrue(welcome.is_visible())
+        self.swipe('#flow-overlay', dy=-100)
+        self.assertEqual(self.posts, ['/api/morning'])
+        self.assertEqual(welcome.get_attribute('data-flow'), 'weather')
+
     def test_morning_weather_shows_readable_hourly_forecast(self):
         self.state['shuruq']['state'] = (datetime.now().astimezone() - timedelta(minutes=1)).isoformat()
         self.page.evaluate('refresh()')
@@ -424,11 +433,15 @@ class BrowserTests(unittest.TestCase):
         self.page.evaluate('refresh()')
         result = self.page.locator('#flow-overlay').evaluate('''e => ({
             background: getComputedStyle(e).backgroundColor,
+            cardBackground: getComputedStyle(e.querySelector('.flow-surface')).backgroundImage,
+            cardBackdrop: getComputedStyle(e.querySelector('.flow-surface')).backdropFilter,
             title: e.querySelector('.flow-title').textContent,
             lightTop: getComputedStyle(document.querySelector('#light')).top,
             lightBottom: getComputedStyle(document.querySelector('#light')).bottom
         })''')
         self.assertEqual(result['background'], 'rgba(0, 0, 0, 0)')
+        self.assertEqual(result['cardBackdrop'], 'none')
+        self.assertIn('rgba(15, 20, 21, 0.28)', result['cardBackground'])
         self.assertEqual(result['title'], 'Good Night, Umair!')
         self.assertNotEqual(result['lightTop'], '8px')
         self.assertNotEqual(result['lightBottom'], 'auto')
