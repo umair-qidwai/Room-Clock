@@ -2,7 +2,7 @@
 
 **Give an old phone a quiet new job.**
 
-A big, readable room clock with a dark display, swipeable widgets, and optional Home Assistant controls and AI usage rings. Run the tiny Python server on a Raspberry Pi or another always-on computer; open it in your phone's browser.
+A big, readable room clock with a dark display, swipeable widgets, and optional Home Assistant controls and AI usage rings. Run the tiny Python server in UserLAnd on an old Android phone or on another always-on computer, then open it in the phone's browser.
 
 - Large rounded 12-hour clock and local date
 - Landscape-first layout, portrait support, and reduced-motion styling
@@ -13,7 +13,7 @@ A big, readable room clock with a dark display, swipeable widgets, and optional 
 
 ## Fresh install
 
-Requires **Python 3.11+**, Git, and a modern browser. On Debian/Raspberry Pi OS, install prerequisites with `sudo apt install git python3-venv`.
+Requires **Python 3.11+**, Git, and a modern browser. On Debian or UserLAnd, install prerequisites with `sudo apt install git python3-venv`.
 
 ```sh
 git clone https://github.com/umair-qidwai/Room-Clock.git
