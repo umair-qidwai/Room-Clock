@@ -188,6 +188,31 @@ class BrowserTests(unittest.TestCase):
                 actual = self.page.locator('.clock-only .time').evaluate('e=>parseFloat(getComputedStyle(e).fontSize)')
                 self.assertAlmostEqual(actual, expected, delta=1, msg=(previous,value,delay))
 
+    def test_clock_scheduler_survives_one_failed_tick(self):
+        self.page.evaluate('''() => {
+            window.clockTickCalls = 0;
+            clock = () => {
+                window.clockTickCalls += 1;
+                if (window.clockTickCalls === 1) throw new Error('injected clock tick failure');
+            };
+        }''')
+        self.page.wait_for_timeout(2300)
+        calls = self.page.evaluate('window.clockTickCalls')
+        self.errors.clear()  # The pre-fix page reports the deliberately injected failure.
+        self.assertGreaterEqual(calls, 2)
+
+    def test_pageshow_recovers_an_interrupted_page_gesture(self):
+        clock = '.page:not([inert]) .clock-pane'
+        self.pointer(clock, 'pointerdown', 240)
+        self.pointer(clock, 'pointermove', 150)
+        self.assertTrue(self.page.evaluate('pageDrag !== null'))
+        self.page.evaluate("window.dispatchEvent(new PageTransitionEvent('pageshow'))")
+        self.assertFalse(self.page.evaluate('pageDrag !== null || pageBusy'))
+        self.assertEqual(self.page.locator('.page:visible').count(), 1)
+        before = self.active_page()
+        self.swipe(clock, -150)
+        self.assertNotEqual(self.active_page(), before)
+
     def test_native_touch_on_digits_loops_pages(self):
         session = self.context.new_cdp_session(self.page)
         session.send('Emulation.setTouchEmulationEnabled', {'enabled': True})
