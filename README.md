@@ -60,10 +60,10 @@ node tests/test_clock_recovery.js
 node tests/test_frontend.js
 ```
 
-Optional browser tests require Playwright (included in dev requirements) and installed Chromium. Set `CHROMIUM_PATH` if it is not `/usr/bin/chromium`:
+Optional browser tests require Playwright (included in dev requirements) and Chromium. `CHROMIUM_PATH` can override automatic browser discovery. Tests use mock API responses; on Linux, run with a time limit:
 
 ```sh
-.venv/bin/python -m unittest discover -s tests -p test_browser.py -v
+timeout --kill-after=5s 295s .venv/bin/python -m unittest discover -s tests -p test_browser.py -v
 ```
 
 ## License
