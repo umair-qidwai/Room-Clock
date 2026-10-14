@@ -73,13 +73,14 @@
 .hourly-current .weather-symbol{width:42px;height:42px}
 .hourly-current .label{font-size:11px;letter-spacing:.16em;color:#8d9da6}
 .hourly-header h1{margin:2px 0 0;font-size:64px;font-weight:500;line-height:1.15;letter-spacing:-.05em;color:#c0cbd0;font-variant-numeric:tabular-nums}
-.hourly-grid{min-height:0;min-width:0;display:grid;grid-template-columns:repeat(var(--hour-count,6),minmax(0,1fr));gap:10px}
+.hourly-grid{min-height:0;min-width:0;display:grid;grid-auto-flow:column;grid-template-rows:minmax(0,1fr);grid-auto-columns:calc((100% - (var(--hour-count,6) - 1)*10px)/var(--hour-count,6));gap:10px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;touch-action:pan-x;-webkit-overflow-scrolling:touch;scrollbar-width:thin;scrollbar-color:#35444e transparent;cursor:grab}.hourly-grid:active{cursor:grabbing}.hourly-grid::-webkit-scrollbar{height:4px}.hourly-grid::-webkit-scrollbar-thumb{background:#35444e;border-radius:4px}.hourly-grid::-webkit-scrollbar-track{background:transparent}
 .hour-card{min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:0;border:0;background:none;text-align:center}
 .hour-card .weather-symbol{width:48px;height:48px;flex-shrink:0}
 .hour-card .hour{font-size:20px;color:#a2b1ba;line-height:1.4;white-space:nowrap}
 .hour-card .temp{font-size:44px;line-height:1.2;letter-spacing:-.04em;color:#c0cbd0;font-weight:500;white-space:nowrap}
 .hour-card .condition{font-size:11px;line-height:1.35;color:#94a6b1;overflow-wrap:anywhere;max-width:100%}
 .hour-card .rain{font-size:11px;line-height:1.4;color:#8298a6;min-height:16px}
+.hourly-grid.no-hours{grid-auto-columns:100%;grid-template-rows:minmax(0,1fr)}
 .hourly-empty{grid-column:1/-1;display:flex;align-items:center;justify-content:center;gap:22px;color:#94a6b1;font-size:18px}
 @media(orientation:portrait){
  .flow-weather .flow-surface{padding:24px 18px;gap:20px}
@@ -87,7 +88,7 @@
  .hourly-header h1{font-size:58px}
  .hourly-current{gap:12px}.hourly-current .weather-symbol{width:32px;height:32px}
  .hourly-header .weather-range{gap:18px}.hourly-header .weather-range strong{font-size:36px}
- .hourly-grid{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:12px}
+ .hourly-grid{grid-auto-columns:calc((100% - 12px)/2);grid-template-rows:repeat(2,minmax(0,1fr));gap:12px}
  .hour-card{gap:12px}.hour-card .temp{font-size:52px}.hour-card .weather-symbol{width:60px;height:60px}
  .hour-card .hour{font-size:22px}.hour-card .condition,.hour-card .rain{font-size:13px}
  .summary-temp{font-size:64px}.summary-card .weather-range strong{font-size:34px}
@@ -102,14 +103,27 @@
  .summary-temp{font-size:52px}.summary-card .weather-range{padding-top:10px}
 }
 </style></head><body class="clock-mode"><button class="light-toggle unknown" id="light" aria-label="Room light state loading" aria-busy="true" aria-pressed="mixed" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18h6M10 21h4M8.5 14.5C7.55 13.62 7 12.25 7 10.75A5 5 0 0 1 17 10.75c0 1.5-.55 2.87-1.5 3.75-.72.67-1.05 1.1-1.2 1.5h-4.6c-.15-.4-.48-.83-1.2-1.5Z"/><path d="M12 2v2M4.93 4.93l1.42 1.42M2 12h2M19.07 4.93l-1.42 1.42M20 12h2"/></svg></button><main id="pages" aria-label="Clock pages"><div class="app page" data-page="widgets" inert aria-hidden="true"><section class="clock-pane" tabindex="0" aria-label="Clock. Swipe up or down for clock only."><div id="date" class="date">Loading…</div><div class="clock-row"><div id="time" class="time">--:--</div></div></section><aside class="widgets"><div class="rail-title">Widgets</div><div id="rail" class="rail"></div><div id="dots" class="dots" aria-label="Widget pages"></div></aside></div><div class="app page clock-only" data-page="clock"><section class="clock-pane" tabindex="0" aria-label="Clock. Swipe up or down for widgets."><div class="date">Loading…</div><div class="clock-row"><div class="time">--:--</div></div></section></div></main><div id="flow-overlay" class="flow-overlay" data-flow="" role="button" tabindex="-1" aria-live="polite"></div><div id="toast" class="toast"></div><script>
-const $=s=>document.querySelector(s);let data={morning_done:false,night_done:false,usage:{codex:{},claude:{}}},lastMinute=null,manualUntil=0,manualIndex=null,toastTimer,widgetTransitionTimer=null,widgetBusy=false,suppressWidgetClick=false,lastWidgetRefresh=0,lastWeatherFetch=0,wakeLock=null,flowKind=null,flowBusy=false,morningWeatherTimer=null,morningWeatherExpires=0,serverClockOffset=0,refreshInFlight=false,flowReconciledDate=null,flowMutation=0,scheduledFlowSuppressedDate=null;
-const FLOW_STORAGE='room-clock-flow-v1',MORNING_WEATHER_MS=120000,ISHA_OFFSET_MS=20*60*1000;
+const $=s=>document.querySelector(s);let data={morning_done:false,night_done:false,usage:{codex:{},claude:{}}},lastMinute=null,manualUntil=0,manualIndex=null,toastTimer,widgetTransitionTimer=null,widgetBusy=false,suppressWidgetClick=false,lastWidgetRefresh=0,lastWeatherFetch=0,wakeLock=null,flowKind=null,flowBusy=false,morningWeatherTimer=null,morningWeatherExpires=0,hourlyWeatherExpires=0,serverClockOffset=0,refreshInFlight=false,flowReconciledDate=null,flowMutation=0,scheduledFlowSuppressedDate=null;
+const FLOW_STORAGE='room-clock-flow-v1',MORNING_WEATHER_MS=120000,ISHA_OFFSET_MS=20*60*1000,REQUEST_TIMEOUT_MS=15000;
+// One deadline covers connection, response and JSON body. Never retry POST here.
+async function requestJSON(url,options,timeout=REQUEST_TIMEOUT_MS){
+  const controller=new AbortController();let timer;
+  const deadline=new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('Request timed out; completion is unknown'))},timeout)});
+  try{
+    return await Promise.race([deadline,(async()=>{
+      const response=await fetch(url,{...options,signal:controller.signal});
+      const body=await response.json();
+      if(!response.ok)throw Error(body?.detail||'Home Assistant is unavailable');
+      return body;
+    })()]);
+  }finally{clearTimeout(timer)}
+}
+let morningNoonAttemptDate=null,flowShownDate=null;
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));function pct(v){return Math.max(0,Math.min(100,Number(v??0)))}function toast(t){let e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>e.classList.remove('show'),2800)}
 function ring(name,value){let p=pct(value),r=20,c=2*Math.PI*r;return `<div class="ring"><div class="ring-gauge"><svg viewBox="0 0 48 48"><circle class="track" cx="24" cy="24" r="20"/><circle class="progress" cx="24" cy="24" r="20" stroke-dasharray="${c}" stroke-dashoffset="${c*(1-p/100)}"/></svg><div class="ring-value">${value==null?'—':Math.round(p)}<small>%</small></div></div><div class="ring-name">${esc(name)}</div></div>`}
-function icon(condition){let c=String(condition||'').toLowerCase();if(c.includes('rain')||c.includes('drizzle'))return'🌧️';if(c.includes('snow'))return'❄️';if(c.includes('thunder'))return'⛈️';if(c.includes('cloud'))return'☁️';if(c.includes('fog'))return'🌫️';if(c.includes('clear')||c.includes('sun'))return'☀️';return'🌤️'}
 function forecastItems(){return Array.isArray(data.weather_forecast)?data.weather_forecast:[]}
-function hourlyItems(){let now=serverNow().getTime()-30*60*1000;return (Array.isArray(data.weather_hourly)?data.weather_hourly:[]).filter(item=>{let t=Date.parse(item.datetime||item.time||'');return !Number.isFinite(t)||t>=now}).slice(0,(innerHeight>innerWidth?4:Math.max(4,Math.min(8,Math.floor((innerWidth-48)/112)))))}
-function formatHour(value){let t=Date.parse(value||'');if(!Number.isFinite(t))return'—';return new Intl.DateTimeFormat([], {hour:'numeric'}).format(new Date(t))}
+function hourlyItems(){const now=serverNow(),date=localDateKey(now);return (Array.isArray(data.weather_hourly)?data.weather_hourly:[]).filter(item=>{const t=Date.parse(item.datetime||item.time||'');return Number.isFinite(t)&&t>=now.getTime()&&localDateKey(new Date(t))===date}).sort((a,b)=>Date.parse(a.datetime||a.time)-Date.parse(b.datetime||b.time))}
+function formatHour(value){let t=Date.parse(value||'');if(!Number.isFinite(t))return'—';return new Intl.DateTimeFormat([], {timeZone:clockZone(),hour:'numeric'}).format(new Date(t))}
 function weatherSymbol(condition){
   const c=String(condition||'').toLowerCase();
   const cloud='<path d="M7 18a4 4 0 1 1 .8-7.9 5.5 5.5 0 0 1 10.6 1.4A3.3 3.3 0 1 1 18 18Z"/>';
@@ -120,26 +134,53 @@ function weatherRange(s){return `<div class="weather-range"><div><span>High</spa
 function conditionLabel(value){return String(value||'Current conditions').replace(/partlycloudy/gi,'Partly cloudy').replace(/[-_]/g,' ').replace(/^./,c=>c.toUpperCase())}
 function hourlyWeatherCard(){
   const items=hourlyItems(),s=daySummary();
-  return `<header class="hourly-header"><div class="hourly-current">${weatherSymbol(data.weather?.state||s.condition)}<div><div class="label">Today · ${esc(s.unit)}</div><h1>${esc(s.temp)}°</h1></div></div>${weatherRange(s)}</header><div class="hourly-grid" style="--hour-count:${items.length||1}">${items.length?items.map(item=>`<div class="hour-card"><div class="hour">${esc(formatHour(item.datetime||item.time))}</div>${weatherSymbol(item.condition)}<div class="temp">${esc(item.temperature??item.templow??'—')}°</div><div class="condition">${esc(conditionLabel(item.condition))}</div><div class="rain">${item.precipitation_probability==null?'':esc(item.precipitation_probability)+'% rain'}</div></div>`).join(''):`<div class="hourly-empty">${weatherSymbol(s.condition)}<div>${esc(conditionLabel(s.condition))}<br><small>Hourly forecast unavailable</small></div></div>`}</div>`;
+  return `<header class="hourly-header"><div class="hourly-current">${weatherSymbol(data.weather?.state||s.condition)}<div><div class="label">Today · ${esc(s.unit)}</div><h1>${esc(s.temp)}°</h1></div></div>${weatherRange(s)}</header><div class="hourly-grid${items.length?'':' no-hours'}" style="--hour-count:${Math.min(items.length,innerHeight>innerWidth?4:Math.max(4,Math.min(8,Math.floor((innerWidth-48)/112))))||1}">${items.length?items.map((item,index)=>`<div class="hour-card"${innerHeight>innerWidth?` style="grid-column:${Math.floor(index/4)*2+index%2+1};grid-row:${Math.floor(index%4/2)+1}"`:''}><div class="hour">${esc(formatHour(item.datetime||item.time))}</div>${weatherSymbol(item.condition)}<div class="temp">${esc(item.temperature??item.templow??'—')}°</div><div class="condition">${esc(conditionLabel(item.condition))}</div><div class="rain">${item.precipitation_probability==null?'':esc(item.precipitation_probability)+'% rain'}</div></div>`).join(''):`<div class="hourly-empty">${weatherSymbol(s.condition)}<div>${esc(conditionLabel(s.condition))}<br><small>Hourly forecast unavailable</small></div></div>`}</div>`;
 }
-function weatherCard(){let w=data.weather||{},a=w.attributes||{},f=forecastItems()[0]||{},temp=f.temperature??a.temperature??'—',unit=a.temperature_unit||'°F',low=f.templow??f.templow??f.templow??'—',high=f.temperature??a.temperature??'—',rain=f.precipitation_probability;return `<div class="card hero-card"><div class="label">Today</div><div class="weather-line"><div class="weather-icon">${icon(f.condition||w.state)}</div><div><div class="weather-temp">${esc(temp)}${esc(unit)}</div><div class="weather-meta">${esc(f.condition||w.state||'Weather')} · high ${esc(high)}${esc(unit)}, low ${esc(low)}${esc(unit)}${rain!=null?' · '+esc(rain)+'% rain':''}</div></div></div><div class="sub">${rain!=null?(Number(rain)>30?'Rain is possible today.':'Low chance of rain today.'):'Live forecast from Home Assistant.'}</div></div>`}
 function daySummary(){let w=data.weather||{},a=w.attributes||{},f=forecastItems()[0]||{},unit=a.temperature_unit||'°F',temp=a.temperature??f.temperature??'—',high=f.temperature??a.temperature??'—',low=f.templow??'—',condition=f.condition||w.state||'Current conditions',rain=f.precipitation_probability;return{unit,temp,high,low,condition,rain}}
 function summaryCard(){const s=daySummary();return `<button class="card summary-card" data-summary-open aria-label="Open today's hourly weather"><div class="label">Today · ${esc(s.unit)}</div><div class="summary-current">${weatherSymbol(data.weather?.state||s.condition)}<div class="summary-temp">${esc(s.temp)}°</div></div><div class="summary-condition">${esc(conditionLabel(data.weather?.state||s.condition))}</div>${weatherRange(s)}</button>`}
-function openHourlyWeather(){clearTimeout(morningWeatherTimer);flowKind='hourly';flowBusy=false;const overlay=$('#flow-overlay');overlay.dataset.flow='hourly';overlay.className='flow-overlay flow-weather visible';overlay.setAttribute('aria-hidden','false');overlay.setAttribute('role','button');overlay.setAttribute('aria-label','Dismiss hourly weather');overlay.innerHTML=`<div class="flow-surface">${hourlyWeatherCard()}</div>`}
+function openHourlyWeather(expires=serverNow().getTime()+MORNING_WEATHER_MS){showWeather('hourly',expires)}
 function openDaySummary(){openHourlyWeather()}
-function flowDate(){return data.date||new Date().toLocaleDateString('en-CA')}
+function clockZone(){try{new Intl.DateTimeFormat('en',{timeZone:data.timezone});return data.timezone}catch(e){return undefined}}
+function timeParts(value){return Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:clockZone(),year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(value).map(p=>[p.type,p.value]))}
+function flowDate(){return localDateKey(serverNow())}
 function scheduledTime(entity){
   const raw=entity?.state??entity?.attributes?.datetime??entity?.attributes?.time;
   if(raw==null||['unknown','unavailable',''].includes(String(raw).toLowerCase()))return null;
   const value=String(raw).trim();let parsed;
   if(/^\d{1,2}:\d{2}(:\d{2})?$/.test(value)){
     const [y,m,d]=flowDate().split('-').map(Number),[h,minute,second=0]=value.split(':').map(Number);
-    parsed=new Date(y,m-1,d,h,minute,second);
+    if(h>23||minute>59||second>59)return null;
+    parsed=zonedTime(flowDate(),h,minute,second);
   }else parsed=new Date(value);
   return Number.isFinite(parsed.getTime())?parsed:null;
 }
-function localDateKey(value){const y=value.getFullYear(),m=String(value.getMonth()+1).padStart(2,'0'),d=String(value.getDate()).padStart(2,'0');return `${y}-${m}-${d}`}
-function currentDailyOccurrence(entity){let value=scheduledTime(entity);if(value&&localDateKey(value)>flowDate()){value=new Date(value);value.setDate(value.getDate()-1)}return value}
+function localDateKey(value){const p=timeParts(value);return `${p.year}-${p.month}-${p.day}`}
+function previousDate(date){const value=new Date(date+'T12:00:00Z');value.setUTCDate(value.getUTCDate()-1);return value.toISOString().slice(0,10)}
+function nightCycleDate(now=serverNow()){
+  const date=localDateKey(now),cycle=Number(timeParts(now).hour)<12?previousDate(date):date;
+  return data.night_date===cycle?data.night_date:cycle;
+}
+function currentDailyOccurrence(entity,cycle=flowDate()){
+  let value=scheduledTime(entity);
+  if(value&&localDateKey(value)>cycle){
+    const p=timeParts(value);
+    value=zonedTime(previousDate(localDateKey(value)),Number(p.hour),Number(p.minute),Number(p.second));
+  }
+  if(value&&localDateKey(value)<cycle){
+    const p=timeParts(value);
+    value=zonedTime(cycle,Number(p.hour),Number(p.minute),Number(p.second));
+  }
+  return value;
+}
+function zonedTime(date,hour,minute=0,second=0){
+  const [y,m,d]=date.split('-').map(Number),target=Date.UTC(y,m-1,d,hour,minute,second);
+  let value=target;
+  for(let i=0;i<3;i++){
+    const p=timeParts(new Date(value)),wall=Date.UTC(Number(p.year),Number(p.month)-1,Number(p.day),Number(p.hour),Number(p.minute),Number(p.second));
+    value+=target-wall;
+  }
+  return new Date(value);
+}
 function serverNow(){return new Date(Date.now()+serverClockOffset)}
 function storedFlow(){try{return JSON.parse(localStorage.getItem(FLOW_STORAGE)||'null')}catch(e){localStorage.removeItem(FLOW_STORAGE);return null}}
 function saveFlow(phase,expires=0){try{localStorage.setItem(FLOW_STORAGE,JSON.stringify({date:flowDate(),phase,expires}))}catch(e){console.warn('Could not persist dashboard flow',e)}}
@@ -147,7 +188,7 @@ function clearStoredFlow(){try{localStorage.removeItem(FLOW_STORAGE)}catch(e){}}
 function setFlowVisible(visible){const overlay=$('#flow-overlay');overlay.classList.toggle('visible',visible);overlay.setAttribute('aria-hidden',String(!visible));if(!visible){overlay.classList.remove('busy','flow-weather');overlay.innerHTML='';overlay.dataset.flow='';flowKind=null;flowBusy=false}}
 function showWelcome(kind,error=''){
   if(flowKind===kind&&!error)return;
-  clearTimeout(morningWeatherTimer);flowKind=kind;flowBusy=false;
+  clearTimeout(morningWeatherTimer);flowKind=kind;flowShownDate=flowDate();flowBusy=false;
   const overlay=$('#flow-overlay'),morning=kind==='morning',name=String(data.user_name||'').trim();
   const title=`Good ${morning?'Morning':'Night'}${name?', '+esc(name):''}!`;
   overlay.dataset.flow=kind;overlay.className='flow-overlay welcome-notification visible';overlay.setAttribute('aria-hidden','false');overlay.setAttribute('role','button');overlay.setAttribute('aria-label',`Start ${kind} routine`);
@@ -157,17 +198,67 @@ function activatePage(index){
   pageIndex=index;pages.forEach((page,i)=>{const inactive=i!==pageIndex;if(inactive)page.setAttribute('inert','');else page.removeAttribute('inert');page.setAttribute('aria-hidden',String(inactive));page.classList.remove('settling','preview');page.style.transform=''});
   document.body.classList.toggle('clock-mode',pageIndex===1);fitTime();fitGauges();
 }
-function showMorningWeather(expires=serverNow().getTime()+MORNING_WEATHER_MS){
-  clearTimeout(morningWeatherTimer);morningWeatherExpires=expires;flowKind='weather';flowBusy=false;saveFlow('weather',expires);
-  const overlay=$('#flow-overlay');overlay.dataset.flow='weather';overlay.className='flow-overlay flow-weather visible';overlay.setAttribute('aria-hidden','false');overlay.setAttribute('role','button');overlay.setAttribute('aria-label','Dismiss hourly weather');
+function showMorningWeather(expires=serverNow().getTime()+MORNING_WEATHER_MS){showWeather('weather',expires)}
+function showWeather(kind,expires){
+  clearTimeout(morningWeatherTimer);
+  const scrollLeft=flowKind===kind?($('#flow-overlay .hourly-grid')?.scrollLeft||0):0;
+  if(kind==='weather'){morningWeatherExpires=expires;saveFlow('weather',expires)}
+  else{hourlyWeatherExpires=expires;flowShownDate=null}
+  flowKind=kind;flowBusy=false;
+  const overlay=$('#flow-overlay');
+  overlay.dataset.flow=kind;overlay.className='flow-overlay flow-weather visible';
+  overlay.setAttribute('aria-hidden','false');overlay.setAttribute('role','button');overlay.setAttribute('aria-label','Dismiss hourly weather');
   overlay.innerHTML=`<div class="flow-surface">${hourlyWeatherCard()}</div>`;
-  const remaining=Math.max(0,expires-serverNow().getTime());if(!remaining){finishMorningWeather();return}morningWeatherTimer=setTimeout(finishMorningWeather,remaining);
+  overlay.querySelector('.hourly-grid').scrollLeft=scrollLeft;
+  const remaining=Math.max(0,expires-serverNow().getTime());
+  if(!remaining){dismissWeather();return}
+  morningWeatherTimer=setTimeout(dismissWeather,remaining);
 }
-function dismissWeather(){const scheduled=flowKind==='weather';clearTimeout(morningWeatherTimer);morningWeatherTimer=null;morningWeatherExpires=0;saveFlow('dismissed');scheduledFlowSuppressedDate=flowDate();flowReconciledDate=flowDate();setFlowVisible(false);if(scheduled)activatePage(0)}
+function dismissWeather(){const scheduled=flowKind==='weather';clearTimeout(morningWeatherTimer);morningWeatherTimer=null;morningWeatherExpires=0;hourlyWeatherExpires=0;saveFlow('dismissed');scheduledFlowSuppressedDate=flowDate();flowReconciledDate=flowDate();setFlowVisible(false);if(scheduled)activatePage(0)}
 function finishMorningWeather(){dismissWeather()}
 function restoreFlow(){const saved=storedFlow();if(!saved||saved.date!==flowDate()){if(saved)clearStoredFlow();return false}if(saved.phase==='dismissed'){scheduledFlowSuppressedDate=flowDate();return false}if(saved.phase!=='weather'){clearStoredFlow();return false}if(saved.expires<=serverNow().getTime()){saveFlow('dismissed');scheduledFlowSuppressedDate=flowDate();activatePage(0);return false}showMorningWeather(saved.expires);return true}
+function shouldAutoRunMorningAtNoon(now){return !data.morning_done&&data.morning_automation_configured&&Number(timeParts(now).hour)>=12}
+async function runRoutine(kind,automatic=false){
+  if(flowBusy)return;
+  flowBusy=true;flowMutation++;
+  $('#flow-overlay').classList.add('busy');
+  try{
+    const result=await requestJSON('/api/'+kind,{method:'POST'});
+    data[kind+'_done']=true;
+    if(kind==='morning'&&!automatic){
+      data.morning_weather_until=result.morning_weather_until||serverNow().getTime()/1000+120;
+      showMorningWeather(data.morning_weather_until*1000);
+    }else{
+      clearStoredFlow();scheduledFlowSuppressedDate=flowDate();setFlowVisible(false);activatePage(1);
+      if(automatic)toast('Morning routine auto-started at noon');
+    }
+  }catch(error){
+    console.error(`Could not start ${kind} routine`,error);
+    showWelcome(kind,(error.message||'Routine unavailable')+'. Check its status before tapping to retry.');
+  }finally{flowMutation++;flowBusy=false}
+}
+async function runMorningAtNoon(){
+  const date=flowDate();
+  try{morningNoonAttemptDate=localStorage.getItem(FLOW_STORAGE+'-noon')||morningNoonAttemptDate}catch(error){}
+  if(morningNoonAttemptDate===date||flowBusy)return;
+  morningNoonAttemptDate=date;
+  try{localStorage.setItem(FLOW_STORAGE+'-noon',date)}catch(error){}
+  await runRoutine('morning',true);
+}
 function evaluateScheduledFlow(now=serverNow()){
+  if(flowBusy)return;
+  const date=flowDate(),nightDate=nightCycleDate(now);
+  if(data.date&&data.date!==date){data.date=date;data.morning_done=false;data.morning_weather_until=0}
+  if(data.night_date&&data.night_date!==nightDate){data.night_date=nightDate;data.night_done=false}
+  const expires=flowKind==='weather'?morningWeatherExpires:flowKind==='hourly'?hourlyWeatherExpires:0;
+  if(expires&&now.getTime()>=expires)dismissWeather();
+  if(flowShownDate&&flowShownDate!==flowDate()){clearTimeout(morningWeatherTimer);setFlowVisible(false);flowShownDate=null}
+  const shuruq=currentDailyOccurrence(data.shuruq),isha=currentDailyOccurrence(data.isha_iqama,nightCycleDate(now)),nightAt=isha?new Date(isha.getTime()+ISHA_OFFSET_MS):null;
+  const nightDue=nightAt&&now>=nightAt&&(!shuruq||nightAt>=shuruq||now<shuruq);
+  if(shouldAutoRunMorningAtNoon(now)&&morningNoonAttemptDate!==flowDate()&&!nightDue){runMorningAtNoon();return}
   if(flowKind==='weather'||flowKind==='hourly')return;
+  if(!data.night_done&&data.night_automation_configured&&nightDue){showWelcome('night');return}
+  if(flowKind==='night'&&!nightDue&&!data.night_done)setFlowVisible(false);
   if(flowKind==='morning'||flowKind==='night'){
     if((flowKind==='morning'&&data.morning_done)||(flowKind==='night'&&data.night_done)){
       if(flowKind==='morning')showMorningWeather(Number(data.morning_weather_until||0)*1000||undefined);
@@ -178,23 +269,19 @@ function evaluateScheduledFlow(now=serverNow()){
   if(restoreFlow())return;
   const serverWeatherUntil=Number(data.morning_weather_until||0)*1000;
   if(data.morning_done&&scheduledFlowSuppressedDate!==flowDate()&&serverWeatherUntil>now.getTime()){showMorningWeather(serverWeatherUntil);return}
-  const shuruq=currentDailyOccurrence(data.shuruq),isha=currentDailyOccurrence(data.isha_iqama),nightAt=isha?new Date(isha.getTime()+ISHA_OFFSET_MS):null;
-  if(!data.night_done&&data.night_automation_configured&&nightAt&&now>=nightAt){showWelcome('night');return}
-  if(!data.morning_done&&data.morning_automation_configured&&shuruq&&now>=shuruq&&(!nightAt||now<nightAt)){showWelcome('morning');return}
+  if(!data.morning_done&&data.morning_automation_configured&&shuruq&&now>=shuruq&&!nightDue){showWelcome('morning');return}
   if(data.morning_done&&!data.night_done&&flowReconciledDate!==flowDate()){flowReconciledDate=flowDate();activatePage(0)}
 }
 async function continueFlow(){
-  const kind=flowKind;if(flowBusy||!['morning','night'].includes(kind))return;flowBusy=true;$('#flow-overlay').classList.add('busy');
-  try{const response=await fetch('/api/'+kind,{method:'POST'});if(!response.ok){let message='Home Assistant is unavailable. Tap to try again.';try{const body=await response.json();if(body.detail)message=body.detail+'. Tap to try again.'}catch(e){}throw Error(message)}const result=await response.json();data[kind+'_done']=true;if(kind==='morning'){data.morning_weather_until=result.morning_weather_until||serverNow().getTime()/1000+120;showMorningWeather(data.morning_weather_until*1000)}else{clearStoredFlow();setFlowVisible(false);activatePage(1)}}catch(error){console.error(`Could not start ${kind} routine`,error);showWelcome(kind,error.message||'Could not start the routine. Tap to try again.')}
+  if(['morning','night'].includes(flowKind))await runRoutine(flowKind);
 }
-function actionCard(kind){let morning=kind==='morning',configured=morning?data.morning_automation_configured:data.night_automation_configured,w=data.weather||{},a=w.attributes||{},f=forecastItems()[0]||{};return `<div class="card hero-card"><h2>${morning?'Good morning':'Good night'}</h2>${morning?`<div class="weather-line"><div class="weather-icon">${icon(f.condition||w.state)}</div><div><div class="weather-temp">${esc(f.temperature??a.temperature??'—')}${esc(a.temperature_unit||'°F')}</div><div class="weather-meta">high ${esc(f.temperature??a.temperature??'—')} · low ${esc(f.templow??'—')} · ${esc(f.condition||w.state||'forecast')}</div></div></div>`:'<div class="sub">Start your night routine before bed.</div>'}<button class="action" data-action="${kind}" ${configured?'':'disabled'}>${configured?'Run '+(morning?'morning':'night')+' routine':'Routine unavailable'}</button></div>`}
 function usageCard(){let u=data.usage||{},c=u.codex||{},h=u.claude||{};return `<div class="card"><div class="card-heading"><h2 class="usage-heading">AI usage</h2></div><div class="rings">${ring('Codex · 5h',c.five_hour_remaining)}${ring('Codex · week',c.weekly_remaining)}${ring('Claude · 5h',h.five_hour_remaining)}${ring('Claude · week',h.weekly_remaining)}</div></div>`}
 function autoKind(){return'usage'}
-function widgetList(){let list=['usage','morning','night','summary'];return list}
-function widgetHTML(k){return k==='morning'?actionCard('morning'):k==='night'?actionCard('night'):k==='summary'?summaryCard():k==='weather'?weatherCard():usageCard()}
+function widgetList(){return ['usage','summary']}
+function widgetHTML(kind){return kind==='summary'?summaryCard():usageCard()}
 function activeWidgetIndex(){let list=widgetList(),k=manualIndex==null?autoKind():list[manualIndex%list.length];return Math.max(0,list.indexOf(k))}
 function paintDots(index){let list=widgetList();$('#dots').innerHTML=list.map((x,i)=>`<span class="dot ${i===index?'active':''}" aria-hidden="true"></span>`).join('')}
-function bindCardActions(){document.querySelectorAll('[data-action]').forEach(b=>b.onclick=clickAction);document.querySelectorAll('[data-summary-open]').forEach(b=>b.onclick=openDaySummary)}
+function bindCardActions(){document.querySelectorAll('[data-summary-open]').forEach(b=>b.onclick=openDaySummary)}
 function render(direction=0,animate=false){let list=widgetList(),index=activeWidgetIndex(),k=list[index],rail=$('#rail');clearTimeout(widgetTransitionTimer);rail.classList.remove('dragging');if(!animate||!rail.firstElementChild){rail.innerHTML=widgetHTML(k);bindCardActions()}else{let old=rail.firstElementChild;old.className=old.className.replace(/widget-(enter|exit)-(up|down)/g,'').trim()+' '+(direction>0?'widget-exit-up':'widget-exit-down');widgetTransitionTimer=setTimeout(()=>{rail.innerHTML=widgetHTML(k);let next=rail.firstElementChild;next.classList.add(direction>0?'widget-enter-up':'widget-enter-down');bindCardActions()},150)}paintDots(index)}
 function selectWidget(index,direction=0,animate=true){let list=widgetList();manualIndex=(index+list.length)%list.length;manualUntil=Date.now()+60000;render(direction,animate)}
 function setManual(dir){if(widgetBusy)return;widgetBusy=true;selectWidget(activeWidgetIndex()+dir,dir,true);setTimeout(()=>{widgetBusy=false},340)}
@@ -203,10 +290,35 @@ function dragDistance(){return Math.max(220,$('#rail').clientHeight)+14}
 function beginWidgetDrag(e){if(widgetBusy||e.pointerType==='mouse'&&e.button!==0)return;let rail=$('#rail'),current=rail.firstElementChild;if(!current)return;widgetBusy=true;clearTimeout(widgetTransitionTimer);drag={id:e.pointerId,startY:e.clientY,startT:performance.now(),dy:0,moved:false,index:activeWidgetIndex(),current,neighbor:null,dir:0};}
 function prepareNeighbor(dir){if(!drag||(drag.dir===dir&&drag.neighbor))return;drag.neighbor?.remove();let list=widgetList(),index=(drag.index+dir+list.length)%list.length,wrap=document.createElement('div');wrap.innerHTML=widgetHTML(list[index]);drag.neighbor=wrap.firstElementChild;drag.neighbor.classList.add('drag-card');$('#rail').appendChild(drag.neighbor);drag.dir=dir}
 function moveWidgetDrag(e){if(!drag||e.pointerId!==drag.id)return;let dy=e.clientY-drag.startY;drag.dy=dy;if(!drag.moved&&Math.abs(dy)<6)return;drag.moved=true;e.isTrusted&&$('#rail').setPointerCapture?.(e.pointerId);e.preventDefault();let rail=$('#rail'),dir=dy<0?1:-1,distance=dragDistance();prepareNeighbor(dir);rail.classList.add('dragging');drag.current.classList.add('drag-card');drag.current.style.transform=`translate3d(0,${dy}px,0)`;drag.current.style.opacity=String(Math.max(.45,1-Math.abs(dy)/distance*.5));drag.neighbor.style.transform=`translate3d(0,${dy+dir*distance}px,0)`;drag.neighbor.style.opacity=String(Math.min(1,.55+Math.abs(dy)/distance*.45))}
-function finishWidgetDrag(e,cancel=false){if(!drag||e.pointerId!==drag.id)return;let endDy=e.clientY-drag.startY;if(Math.abs(endDy)>Math.abs(drag.dy))moveWidgetDrag(e);let state=drag;drag=null;let rail=$('#rail');rail.hasPointerCapture(e.pointerId)&&rail.releasePointerCapture(e.pointerId);if(!state.moved||!state.neighbor){rail.classList.remove('dragging');widgetBusy=false;return}let distance=dragDistance(),elapsed=Math.max(1,performance.now()-state.startT),velocity=state.dy/elapsed,fastFlick=elapsed<600&&Math.abs(state.dy)>20,commit=!cancel&&(Math.abs(state.dy)>distance*.18||Math.abs(velocity)>.28||fastFlick),dir=state.dy<0?1:-1;state.current.classList.add('settling');state.neighbor.classList.add('settling');requestAnimationFrame(()=>{if(commit){state.current.style.transform=`translate3d(0,${-dir*distance}px,0)`;state.current.style.opacity='0';state.neighbor.style.transform='translate3d(0,0,0)';state.neighbor.style.opacity='1'}else{state.current.style.transform='translate3d(0,0,0)';state.current.style.opacity='1';state.neighbor.style.transform=`translate3d(0,${dir*distance}px,0)`;state.neighbor.style.opacity='0'}});suppressWidgetClick=true;setTimeout(()=>{rail.classList.remove('dragging');if(commit){manualIndex=(state.index+dir+widgetList().length)%widgetList().length;manualUntil=Date.now()+60000}widgetBusy=false;render();setTimeout(()=>{suppressWidgetClick=false},0)},250)}
+function finishWidgetDrag(e,cancel=false){
+  if(!drag||e.pointerId!==drag.id)return;
+  const endDy=e.clientY-drag.startY;
+  if(Math.abs(endDy)>Math.abs(drag.dy))moveWidgetDrag(e);
+  const state=drag,epoch=gestureEpoch,rail=$('#rail');drag=null;
+  if(rail.hasPointerCapture(e.pointerId))rail.releasePointerCapture(e.pointerId);
+  if(!state.moved||!state.neighbor){rail.classList.remove('dragging');widgetBusy=false;return}
+  const distance=dragDistance(),elapsed=Math.max(1,performance.now()-state.startT),dir=state.dy<0?1:-1;
+  const commit=!cancel&&swipeCommits(state.dy,elapsed,distance);
+  state.current.classList.add('settling');state.neighbor.classList.add('settling');
+  requestAnimationFrame(()=>{
+    if(epoch!==gestureEpoch)return;
+    state.current.style.transform=`translate3d(0,${commit?-dir*distance:0}px,0)`;
+    state.current.style.opacity=commit?'0':'1';
+    state.neighbor.style.transform=`translate3d(0,${commit?0:dir*distance}px,0)`;
+    state.neighbor.style.opacity=commit?'1':'0';
+  });
+  suppressWidgetClick=true;
+  setTimeout(()=>{
+    if(epoch!==gestureEpoch)return;
+    rail.classList.remove('dragging');
+    if(commit){manualIndex=(state.index+dir+widgetList().length)%widgetList().length;manualUntil=Date.now()+60000}
+    widgetBusy=false;render();
+    setTimeout(()=>{if(epoch===gestureEpoch)suppressWidgetClick=false},0);
+  },250);
+}
 // A page gesture starts only on a clock pane, never on a widget or light.
 const pages=Array.from(document.querySelectorAll('.page'));
-let pageIndex=1,pageDrag=null,pageBusy=false;
+let pageIndex=1,pageDrag=null,pageBusy=false,gestureEpoch=0;
 function pageDistance(){return $('#pages').clientHeight+14}
 function swipeCommits(dy,elapsed,distance){return Math.abs(dy)>distance*.18||Math.abs(dy)/Math.max(1,elapsed)>.28||(elapsed<600&&Math.abs(dy)>20)}
 function beginPageDrag(e){
@@ -229,7 +341,7 @@ function finishPageDrag(e,cancel=false){
   if(!pageDrag||e.pointerId!==pageDrag.id)return;
   // Always use the release position, including a reversal or a coalesced flick.
   if(!cancel)movePageDrag(e);
-  const d=pageDrag;pageDrag=null;
+  const d=pageDrag,epoch=gestureEpoch;pageDrag=null;
   if(e.pointerId>=0&&d.pane.hasPointerCapture(e.pointerId))d.pane.releasePointerCapture(e.pointerId);
   if(!d.moved)return;
   pageBusy=true;
@@ -237,10 +349,12 @@ function finishPageDrag(e,cancel=false){
   const commit=!cancel&&swipeCommits(d.dy,performance.now()-d.startT,distance);
   d.current.classList.add('settling');d.neighbor.classList.add('settling');
   requestAnimationFrame(()=>{
+    if(epoch!==gestureEpoch)return;
     d.current.style.transform=`translate3d(0,${commit?-dir*distance:0}px,0)`;
     d.neighbor.style.transform=`translate3d(0,${commit?0:dir*distance}px,0)`;
   });
   setTimeout(()=>{
+    if(epoch!==gestureEpoch)return;
     const hadFocus=d.current.contains(document.activeElement);
     if(commit)pageIndex=1-pageIndex;
     pages.forEach((page,i)=>{
@@ -290,9 +404,55 @@ document.querySelectorAll('.clock-pane').forEach(pane=>{
     finishPageDrag({...start,clientY:e.key==='ArrowUp'?-pageDistance():pageDistance(),preventDefault(){}});
   });
 });
-async function clickAction(e){let a=e.currentTarget.dataset.action;if(a==='morning'||a==='night'){e.currentTarget.disabled=true;flowMutation++;scheduledFlowSuppressedDate=flowDate();try{let r=await fetch('/api/'+a,{method:'POST'});if(!r.ok)throw Error('Home Assistant did not accept the routine');data[a+'_done']=true;manualIndex=null;manualUntil=0;toast((a==='morning'?'Morning':'Night')+' routine triggered');render()}catch(error){console.error(`Could not start ${a} routine`,error);toast('Routine unavailable — tap to retry');e.currentTarget.disabled=false}}}
-let pendingExpected=null,lightError=false,lightErrorTimer;function showLightError(message){pendingExpected=null;lightError=true;clearTimeout(lightErrorTimer);lightErrorTimer=setTimeout(()=>{lightError=false;updateLight()},4000);updateLight();toast(message)}async function confirmLight(expected,started){try{let r=await fetch('/api/state',{cache:'no-store'}),j=await r.json(),actual=j.room?.state;if(actual===expected){data.room=j.room;pendingExpected=null;lightError=false;updateLight();return}if(Date.now()-started>=5000){showLightError('Light did not respond — tap to retry');return}setTimeout(()=>confirmLight(expected,started),250)}catch(e){if(Date.now()-started>=5000)showLightError('Could not confirm the light state');else setTimeout(()=>confirmLight(expected,started),250)}}async function toggleLight(){if(pendingExpected)return;let current=data.room?.state,expected=current==='on'?'off':'on';pendingExpected=expected;lightError=false;updateLight();let started=Date.now();try{let r=await fetch('/api/room/toggle',{method:'POST'});if(!r.ok)throw Error('command failed');let j=await r.json();expected=j.requested_state||expected;pendingExpected=expected;confirmLight(expected,started)}catch(e){showLightError('Could not send the light command')}}function updateLight(){let b=$('#light'),state=pendingExpected||data.room?.state,on=state==='on',off=state==='off',pending=pendingExpected!==null;b.classList.toggle('on',on);b.classList.toggle('unknown',!on&&!off);b.classList.toggle('error',!pending&&lightError);b.setAttribute('aria-busy',String(pending||(!on&&!off)));b.setAttribute('aria-pressed',on?'true':off?'false':'mixed');b.setAttribute('aria-label',pending?(on?'Room light turning on':'Room light turning off'):lightError?'Room light command failed':on?'Room light is on':off?'Room light is off':'Room light state unavailable');b.title=pending?(on?'Turning on — confirming…':'Turning off — confirming…'):lightError?'Light command failed — retry':on?'Turn off Room light':off?'Turn on Room light':'Room light state unavailable';b.disabled=pending||(!on&&!off)}
-async function refresh(){if(refreshInFlight)return;refreshInFlight=true;const mutationAtRequest=flowMutation;try{let r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw Error('state unavailable');const received=await r.json();if(mutationAtRequest!==flowMutation)return;if(Number.isFinite(Number(received.server_now)))serverClockOffset=Number(received.server_now)*1000-Date.now();data={...data,...received};updateLight();evaluateScheduledFlow();let now=Date.now();if(!widgetBusy&&!drag&&!pageBusy&&!pageDrag&&now-lastWidgetRefresh>30000){render();lastWidgetRefresh=now}if(now-lastWeatherFetch>300000){lastWeatherFetch=now;fetch('/api/weather',{cache:'no-store'}).then(r=>r.json()).then(j=>{data.weather_forecast=j.forecast||[];data.weather_hourly=j.hourly||[];if(flowKind==='weather')showMorningWeather(morningWeatherExpires);else if(flowKind==='hourly')openHourlyWeather();else if(!widgetBusy&&!drag&&!pageBusy&&!pageDrag&&['morning','summary'].includes(widgetList()[activeWidgetIndex()]))render()}).catch(error=>console.warn('Weather forecast unavailable',error))}}catch(e){console.warn('Dashboard state unavailable; retrying',e);toast('Dashboard reconnecting…')}finally{refreshInFlight=false}}
+let pendingExpected=null,lightError=false,lightErrorTimer;function showLightError(message){pendingExpected=null;lightError=true;clearTimeout(lightErrorTimer);lightErrorTimer=setTimeout(()=>{lightError=false;updateLight()},4000);updateLight();toast(message)}async function confirmLight(expected,started){
+  try{
+    const state=await requestJSON('/api/state',{cache:'no-store'},Math.max(1,5000-(Date.now()-started)));
+    if(state.room?.state===expected){data.room=state.room;pendingExpected=null;lightError=false;updateLight();return}
+    if(Date.now()-started>=5000){showLightError('Light did not respond — tap to retry');return}
+    setTimeout(()=>confirmLight(expected,started),250);
+  }catch(error){
+    if(Date.now()-started>=5000)showLightError('Could not confirm the light state');
+    else setTimeout(()=>confirmLight(expected,started),250);
+  }
+}async function toggleLight(){
+  if(pendingExpected)return;
+  const expected=data.room?.state==='on'?'off':'on',started=Date.now();
+  pendingExpected=expected;lightError=false;updateLight();
+  try{
+    const result=await requestJSON('/api/room/toggle',{method:'POST'});
+    pendingExpected=result.requested_state||expected;
+    confirmLight(pendingExpected,started);
+  }catch(error){showLightError('Could not send the light command; check its state before retrying')}
+}function updateLight(){let b=$('#light'),state=pendingExpected||data.room?.state,on=state==='on',off=state==='off',pending=pendingExpected!==null;b.classList.toggle('on',on);b.classList.toggle('unknown',!on&&!off);b.classList.toggle('error',!pending&&lightError);b.setAttribute('aria-busy',String(pending||(!on&&!off)));b.setAttribute('aria-pressed',on?'true':off?'false':'mixed');b.setAttribute('aria-label',pending?(on?'Room light turning on':'Room light turning off'):lightError?'Room light command failed':on?'Room light is on':off?'Room light is off':'Room light state unavailable');b.title=pending?(on?'Turning on — confirming…':'Turning off — confirming…'):lightError?'Light command failed — retry':on?'Turn off Room light':off?'Turn on Room light':'Room light state unavailable';b.disabled=pending||(!on&&!off)}
+async function refresh(){
+  if(refreshInFlight)return;
+  refreshInFlight=true;
+  const mutationAtRequest=flowMutation;
+  try{
+    const received=await requestJSON('/api/state',{cache:'no-store'});
+    // Reject snapshots crossing either edge of a routine mutation.
+    if(flowBusy||mutationAtRequest!==flowMutation)return;
+    if(Number.isFinite(Number(received.server_now)))serverClockOffset=Number(received.server_now)*1000-Date.now();
+    const morningSameCycle=!received.date||received.date===data.date;
+    const nightSameCycle=(received.night_date||received.date)===(data.night_date||data.date);
+    data={...data,...received,
+      morning_done:received.morning_done||(morningSameCycle&&data.morning_done)||false,
+      night_done:received.night_done||(nightSameCycle&&data.night_done)||false};
+    updateLight();evaluateScheduledFlow();
+    const now=Date.now();
+    if(!widgetBusy&&!drag&&!pageBusy&&!pageDrag&&now-lastWidgetRefresh>30000){render();lastWidgetRefresh=now}
+    if(now-lastWeatherFetch>300000){
+      lastWeatherFetch=now;
+      requestJSON('/api/weather',{cache:'no-store'}).then(j=>{
+        data.weather_forecast=j.forecast||[];data.weather_hourly=j.hourly||[];
+        if(flowKind==='weather')showMorningWeather(morningWeatherExpires);
+        else if(flowKind==='hourly')openHourlyWeather(hourlyWeatherExpires);
+        else if(!widgetBusy&&!drag&&!pageBusy&&!pageDrag&&widgetList()[activeWidgetIndex()]==='summary')render();
+      }).catch(error=>console.warn('Weather forecast unavailable',error));
+    }
+  }catch(error){console.warn('Dashboard state unavailable; retrying',error);toast('Dashboard reconnecting…')}
+  finally{refreshInFlight=false}
+}
 // Measure the same individually rendered glyphs as the animation slots. Their
 // actual ink, not the font's generous line box, determines fit and centering.
 const inkCanvas=document.createElement('canvas'),inkContext=inkCanvas.getContext('2d');
@@ -339,10 +499,22 @@ function paintTime(value,previous,animate){let face=document.createElement('span
 function fitGauges(){document.querySelectorAll('.ring').forEach(r=>{const name=r.querySelector('.ring-name');r.style.setProperty('--gauge-size',Math.max(24,Math.min(140,r.clientWidth-4,r.clientHeight-name.offsetHeight-9))+'px')})}
 new ResizeObserver(()=>{fitTime();fitGauges()}).observe($('.app'));
 new MutationObserver(fitGauges).observe($('#rail'),{childList:true});
-function clock(){let n=new Date(),mins=n.getHours()*60+n.getMinutes(),h=n.getHours()%12||12,hh=`${h}:${String(n.getMinutes()).padStart(2,'0')}`;if(lastMinute===null){paintTime(hh,null,false)}else if(lastMinute!==mins){let previous=$('#time .time-face').dataset.value;paintTime(hh,previous,true)}lastMinute=mins;{let parts=new Intl.DateTimeFormat([],{weekday:'long',month:'long',day:'numeric'}).formatToParts(n),part=t=>parts.find(p=>p.type===t)?.value||'';document.querySelectorAll('.date').forEach(date=>date.textContent=`${part('weekday')}, ${part('month')} ${part('day')}`)}}
-function safeClock(){try{clock()}catch(error){console.error('Clock tick failed; retrying',error)}}
-function recoverDashboard(){clearTimeout(widgetTransitionTimer);drag=null;widgetBusy=false;suppressWidgetClick=false;pageDrag=null;pageBusy=false;$('#pages').classList.remove('dragging');activatePage(pageIndex);render();safeClock();requestWakeLock()}
-async function requestWakeLock(){if(!('wakeLock'in navigator)||document.visibilityState!=='visible'||wakeLock)return;try{wakeLock=await navigator.wakeLock.request('screen');wakeLock.addEventListener('release',()=>{wakeLock=null})}catch(e){wakeLock=null}}document.addEventListener('pointerdown',requestWakeLock,{passive:true});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')recoverDashboard()});window.addEventListener('pageshow',recoverDashboard);
-function handleFlowContact(event){if(event.type==='pointerdown'&&event.pointerType==='mouse'&&event.button!==0)return;if(flowKind==='weather'||flowKind==='summary'||flowKind==='hourly')dismissWeather();else continueFlow()}
-$('#light').onclick=toggleLight;$('#flow-overlay').addEventListener('pointerdown',handleFlowContact);$('#flow-overlay').addEventListener('touchstart',event=>{if(!window.PointerEvent)handleFlowContact(event)},{passive:true});$('#flow-overlay').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();handleFlowContact(e)}});let widgetRail=$('#rail');widgetRail.addEventListener('pointerdown',beginWidgetDrag);widgetRail.addEventListener('pointermove',moveWidgetDrag);widgetRail.addEventListener('pointerup',finishWidgetDrag);widgetRail.addEventListener('pointercancel',e=>finishWidgetDrag(e,true));widgetRail.addEventListener('click',e=>{if(suppressWidgetClick){e.preventDefault();e.stopImmediatePropagation()}},true);let lastWheelAt=0;widgetRail.addEventListener('wheel',e=>{let now=Date.now();if(Math.abs(e.deltaY)>8&&now-lastWheelAt>380){lastWheelAt=now;setManual(e.deltaY>0?1:-1)}},{passive:true});safeClock();document.fonts.ready.then(fitTime);addEventListener('resize',()=>{fitTime();if(flowKind==='weather')showMorningWeather(morningWeatherExpires);else if(flowKind==='hourly')openHourlyWeather()});render();refresh();function alignedTick(){setTimeout(()=>{safeClock();alignedTick()},1000-Date.now()%1000)}alignedTick();setInterval(refresh,1000);setInterval(()=>{if(!widgetBusy&&!drag&&!pageBusy&&!pageDrag&&Date.now()>manualUntil&&manualIndex!=null){manualIndex=null;render()}},1000);
+function clock(){
+  const n=serverNow(),p=timeParts(n),mins=Number(p.hour)*60+Number(p.minute),hh=`${Number(p.hour)%12||12}:${p.minute}`;
+  if(lastMinute===null)paintTime(hh,null,false);
+  else if(lastMinute!==mins)paintTime(hh,$('#time .time-face').dataset.value,true);
+  lastMinute=mins;
+  const parts=new Intl.DateTimeFormat([],{timeZone:clockZone(),weekday:'long',month:'long',day:'numeric'}).formatToParts(n),part=t=>parts.find(p=>p.type===t)?.value||'';
+  document.querySelectorAll('.date').forEach(date=>date.textContent=`${part('weekday')}, ${part('month')} ${part('day')}`);
+}
+function safeClock(){try{clock()}catch(error){console.error('Clock tick failed; retrying',error)}try{evaluateScheduledFlow()}catch(error){console.error('Schedule evaluation failed',error)}}
+function recoverDashboard(){gestureEpoch++;clearTimeout(widgetTransitionTimer);drag=null;widgetBusy=false;suppressWidgetClick=false;pageDrag=null;pageBusy=false;$('#pages').classList.remove('dragging');activatePage(pageIndex);render();lastMinute=null;safeClock();requestWakeLock()}
+let wakeLockPending=false,wakeLockRetryTimer=null;
+async function requestWakeLock(){if(!('wakeLock'in navigator)||document.visibilityState!=='visible'||wakeLock||wakeLockPending)return;clearTimeout(wakeLockRetryTimer);wakeLockPending=true;try{const lock=await navigator.wakeLock.request('screen');wakeLock=lock;lock.addEventListener('release',()=>{if(wakeLock!==lock)return;wakeLock=null;if(document.visibilityState==='visible')wakeLockRetryTimer=setTimeout(requestWakeLock,5000)})}catch(e){wakeLock=null;if(document.visibilityState==='visible')wakeLockRetryTimer=setTimeout(requestWakeLock,30000)}finally{wakeLockPending=false}}document.addEventListener('pointerdown',requestWakeLock,{passive:true});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')recoverDashboard()});window.addEventListener('pageshow',recoverDashboard);window.addEventListener('focus',()=>{if(document.visibilityState==='visible')recoverDashboard()});document.addEventListener('resume',recoverDashboard);
+let weatherGesture=null;
+function beginWeatherGesture(event){if(!['weather','hourly','summary'].includes(flowKind))return;const strip=event.target.closest?.('.hourly-grid');weatherGesture={id:event.pointerId,x:event.clientX,y:event.clientY,moved:false,strip,left:strip?.scrollLeft||0,mouse:event.pointerType==='mouse'}}
+function moveWeatherGesture(event){const g=weatherGesture;if(!g||g.id!==event.pointerId)return;const dx=event.clientX-g.x,dy=event.clientY-g.y;if(Math.hypot(dx,dy)>8)g.moved=true;if(g.mouse&&g.strip&&g.moved){if(event.isTrusted&&event.type==='pointermove')g.strip.setPointerCapture?.(event.pointerId);g.strip.scrollLeft=g.left-dx;event.preventDefault()}}
+function endWeatherGesture(event){if(!weatherGesture||weatherGesture.id!==event.pointerId)return;if(event.type==='pointercancel')weatherGesture.moved=true;else moveWeatherGesture(event)}
+function handleFlowContact(event){if(event.type==='pointerdown'&&event.pointerType==='mouse'&&event.button!==0)return;if(flowKind==='weather'||flowKind==='summary'||flowKind==='hourly'){if(event.type==='pointerdown'){beginWeatherGesture(event);return}if(event.type!=='click'&&event.type!=='keydown')return;event.preventDefault();event.stopPropagation();const moved=event.type==='click'&&weatherGesture?.moved;weatherGesture=null;if(!moved)dismissWeather()}else if(event.type!=='click')continueFlow()}
+$('#light').onclick=toggleLight;$('#flow-overlay').addEventListener('pointerdown',handleFlowContact);$('#flow-overlay').addEventListener('click',handleFlowContact);$('#flow-overlay').addEventListener('pointermove',moveWeatherGesture);$('#flow-overlay').addEventListener('pointerup',endWeatherGesture);$('#flow-overlay').addEventListener('pointercancel',endWeatherGesture);$('#flow-overlay').addEventListener('touchstart',event=>{if(!window.PointerEvent)handleFlowContact(event)},{passive:true});$('#flow-overlay').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();handleFlowContact(e)}});let widgetRail=$('#rail');widgetRail.addEventListener('pointerdown',beginWidgetDrag);widgetRail.addEventListener('pointermove',moveWidgetDrag);widgetRail.addEventListener('pointerup',finishWidgetDrag);widgetRail.addEventListener('pointercancel',e=>finishWidgetDrag(e,true));widgetRail.addEventListener('click',e=>{if(suppressWidgetClick){e.preventDefault();e.stopImmediatePropagation()}},true);let lastWheelAt=0;widgetRail.addEventListener('wheel',e=>{let now=Date.now();if(Math.abs(e.deltaY)>8&&now-lastWheelAt>380){lastWheelAt=now;setManual(e.deltaY>0?1:-1)}},{passive:true});safeClock();document.fonts.ready.then(fitTime);addEventListener('resize',()=>{fitTime();if(flowKind==='weather')showMorningWeather(morningWeatherExpires);else if(flowKind==='hourly')openHourlyWeather(hourlyWeatherExpires)});render();refresh();function alignedTick(){setTimeout(()=>{safeClock();alignedTick()},1000-Date.now()%1000)}alignedTick();setInterval(refresh,1000);setInterval(()=>{if(!widgetBusy&&!drag&&!pageBusy&&!pageDrag&&Date.now()>manualUntil&&manualIndex!=null){manualIndex=null;render()}},1000);
 </script></body></html>
